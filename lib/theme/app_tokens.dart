@@ -1,0 +1,72 @@
+import 'package:flutter/material.dart';
+
+import 'app_colors.dart';
+
+/// Spacing scale. Use these for padding and gaps between widgets.
+class AppSpacing {
+  AppSpacing._();
+
+  static const double xs = 4;
+  static const double sm = 8;
+  static const double md = 12;
+  static const double lg = 16;
+  static const double xl = 20;
+  static const double xxl = 24;
+  static const double xxxl = 32;
+
+  /// Padding on the left and right edges of every screen.
+  static const double screen = 20;
+
+  /// Widest a form can get on tablets / landscape, so it doesn't stretch.
+  static const double formMaxWidth = 440;
+
+  /// Widest a list of content can get on tablets / landscape.
+  static const double contentMaxWidth = 640;
+
+  /// Widest a grid of cards can get (the courses page).
+  static const double gridMaxWidth = 1040;
+
+  /// Screens at least this wide show two course cards per row.
+  static const double twoColumnBreakpoint = 600;
+}
+
+/// Corner radii, matching the rounded corners on qaabil.io.
+class AppRadius {
+  AppRadius._();
+
+  static const double sm = 8; // small chips, nav pills
+  static const double md = 10; // buttons and text fields
+  static const double control = 14; // search bar, filters, sort menu
+  static const double lg = 16; // cards
+  static const double xl = 20; // large feature cards, course cards
+
+  static BorderRadius get button => BorderRadius.circular(md);
+  static BorderRadius get controlRadius => BorderRadius.circular(control);
+  static BorderRadius get card => BorderRadius.circular(lg);
+  static BorderRadius get panel => BorderRadius.circular(xl);
+}
+
+/// Shadows. The website uses soft, navy-tinted shadows rather than grey.
+class AppShadows {
+  AppShadows._();
+
+  /// For cards in a list.
+  static List<BoxShadow> get card => [
+    BoxShadow(
+      color: AppColors.navy.withValues(alpha: 0.08),
+      offset: const Offset(0, 12),
+      blurRadius: 28,
+      spreadRadius: -8,
+    ),
+  ];
+
+  /// For a single panel that should stand out, like the login form.
+  static List<BoxShadow> get raised => [
+    BoxShadow(
+      color: AppColors.navy.withValues(alpha: 0.15),
+      offset: const Offset(0, 20),
+      blurRadius: 40,
+      spreadRadius: -12,
+    ),
+  ];
+}
