@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
 
-/// A white card with a thin border and a soft navy shadow,
-/// like the cards on qaabil.io.
+/// A rounded card with a crisp lower edge, shared by every learning screen.
 class AppCard extends StatelessWidget {
   const AppCard({
     super.key,
@@ -32,7 +31,7 @@ class AppCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: AppColors.surface,
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppColors.border, width: 2),
         borderRadius:
             borderRadius ?? (raised ? AppRadius.panel : AppRadius.card),
         boxShadow: raised ? AppShadows.raised : AppShadows.card,

@@ -46,3 +46,8 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Local meeting baselines (APK and full source snapshots).
+/backups/
+/images-of-qaabil-web/
+/docs/backend-findings.md

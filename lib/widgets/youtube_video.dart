@@ -1,17 +1,14 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
 import '../theme/app_tokens.dart';
 
-/// Plays one YouTube video inside the app, with rounded corners.
-///
-/// This is a StatefulWidget because the player has a *controller* that must
-/// be created once and closed when the widget goes away (otherwise the
-/// video could keep playing in the background).
+/// An inline YouTube lesson, with a fresh player on retry or lesson change.
 class YoutubeVideo extends StatefulWidget {
   const YoutubeVideo({super.key, required this.videoId});
-
-  /// The part after `v=` in a YouTube link.
   final String videoId;
 
   @override
@@ -19,37 +16,99 @@ class YoutubeVideo extends StatefulWidget {
 }
 
 class _YoutubeVideoState extends State<YoutubeVideo> {
-  late final YoutubePlayerController _controller;
+  late YoutubePlayerController _controller;
+  bool _loadFailed = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = YoutubePlayerController.fromVideoId(
-      videoId: widget.videoId,
+    _createPlayer();
+  }
+
+  void _createPlayer() {
+    _loadFailed = false;
+    _controller = YoutubePlayerController(
       params: const YoutubePlayerParams(
         showFullscreenButton: true,
-        // Only suggest videos from the same channel when it ends.
         strictRelatedVideos: true,
       ),
     );
+    unawaited(_cueLesson(_controller, widget.videoId));
+  }
+
+  Future<void> _cueLesson(YoutubePlayerController controller, String id) async {
+    try {
+      // Await loading explicitly so initialization/network failures are handled.
+      // The factory starts this Future without exposing its errors to the widget.
+      await controller.cueVideoById(videoId: id);
+    } catch (_) {
+      if (mounted && controller == _controller) {
+        setState(() => _loadFailed = true);
+      }
+    }
+  }
+
+  void _retry() {
+    unawaited(_controller.close());
+    setState(_createPlayer);
+  }
+
+  @override
+  void didUpdateWidget(covariant YoutubeVideo oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.videoId != widget.videoId) {
+      unawaited(_controller.close());
+      _createPlayer();
+    }
   }
 
   @override
   void dispose() {
-    _controller.close();
+    unawaited(_controller.close());
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: AppRadius.button,
-      child: YoutubePlayer(
-        controller: _controller,
-        // By default the player jumps to fullscreen whenever the device is
-        // in landscape. Keep it inline; the fullscreen button still works.
-        autoFullScreen: false,
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.topCenter,
+    heightFactor: 1,
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: AppSpacing.contentMaxWidth),
+      child: StreamBuilder<YoutubePlayerValue>(
+        key: ValueKey(_controller),
+        stream: _controller.stream,
+        initialData: _controller.value,
+        builder: (context, snapshot) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ClipRRect(
+              borderRadius: AppRadius.button,
+              child: LayoutBuilder(
+                builder: (context, constraints) => YoutubePlayer(
+                  key: ValueKey(_controller),
+                  controller: _controller,
+                  // Keep YouTube controls at least 200 logical pixels high on phones.
+                  aspectRatio: math.min(16 / 9, constraints.maxWidth / 200),
+                  autoFullScreen: false,
+                ),
+              ),
+            ),
+            if (_loadFailed || snapshot.data?.hasError == true) ...[
+              const SizedBox(height: AppSpacing.md),
+              const Text(
+                'This video could not be played. Check your connection and try again.',
+                textAlign: TextAlign.center,
+              ),
+              TextButton.icon(
+                onPressed: _retry,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry video'),
+              ),
+            ],
+          ],
+        ),
       ),
-    );
-  }
+    ),
+  );
 }

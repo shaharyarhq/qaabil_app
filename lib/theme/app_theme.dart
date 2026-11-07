@@ -38,7 +38,7 @@ class AppTheme {
         scrolledUnderElevation: 0,
         centerTitle: false,
         // A thin bottom line instead of a shadow, like the website's nav bar.
-        shape: Border(bottom: BorderSide(color: AppColors.border)),
+        shape: Border(bottom: BorderSide(color: AppColors.border, width: 2)),
       ),
 
       filledButtonTheme: FilledButtonThemeData(
@@ -46,13 +46,21 @@ class AppTheme {
             FilledButton.styleFrom(
               backgroundColor: AppColors.navy,
               foregroundColor: Colors.white,
-              minimumSize: const Size.fromHeight(52),
+              minimumSize: const Size(64, 54),
               shape: buttonShape,
               textStyle: AppTextStyles.button,
+              elevation: 0,
             ).copyWith(
               // Darker navy while pressed, instead of the default ripple tint.
+              foregroundColor: WidgetStateProperty.resolveWith(
+                (states) => states.contains(WidgetState.disabled)
+                    ? AppColors.textSecondary
+                    : Colors.white,
+              ),
               backgroundColor: WidgetStateProperty.resolveWith(
-                (states) => states.contains(WidgetState.pressed)
+                (states) => states.contains(WidgetState.disabled)
+                    ? AppColors.border
+                    : states.contains(WidgetState.pressed)
                     ? AppColors.navyDark
                     : AppColors.navy,
               ),
@@ -95,6 +103,48 @@ class AppTheme {
         textStyle: AppTextStyles.label,
       ),
 
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(64, 52),
+          foregroundColor: AppColors.navy,
+          side: const BorderSide(color: AppColors.border, width: 2),
+          shape: buttonShape,
+          textStyle: AppTextStyles.button,
+        ),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: AppColors.surface,
+        elevation: 0,
+        height: 80,
+        indicatorColor: Colors.transparent,
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (states) => TextStyle(
+            fontFamily: AppTextStyles.sans,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            color: states.contains(WidgetState.selected)
+                ? AppColors.navy
+                : AppColors.textMuted,
+          ),
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: AppColors.surface,
+        selectedColor: AppColors.navyTint,
+        side: const BorderSide(color: AppColors.border, width: 2),
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
+        labelStyle: AppTextStyles.label,
+      ),
+      dividerTheme: const DividerThemeData(
+        color: AppColors.border,
+        thickness: 2,
+      ),
+      expansionTileTheme: const ExpansionTileThemeData(
+        iconColor: AppColors.navy,
+        collapsedIconColor: AppColors.textMuted,
+        shape: Border(),
+        collapsedShape: Border(),
+      ),
       textSelectionTheme: TextSelectionThemeData(
         cursorColor: AppColors.navy,
         selectionColor: AppColors.navy.withValues(alpha: 0.15),
@@ -107,7 +157,7 @@ class AppTheme {
   static OutlineInputBorder inputBorder(Color color, {BorderRadius? radius}) {
     return OutlineInputBorder(
       borderRadius: radius ?? AppRadius.button,
-      borderSide: BorderSide(color: color, width: 1.5),
+      borderSide: BorderSide(color: color, width: 2),
     );
   }
 }

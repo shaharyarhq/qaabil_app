@@ -33,9 +33,8 @@ class FilterPill extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: AppRadius.controlRadius,
         side: BorderSide(
-          color: selected
-              ? AppColors.navy.withValues(alpha: 0.35)
-              : AppColors.border,
+          width: 2,
+          color: selected ? AppColors.navy : AppColors.border,
         ),
       ),
       child: InkWell(

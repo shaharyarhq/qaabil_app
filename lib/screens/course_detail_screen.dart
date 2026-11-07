@@ -8,7 +8,7 @@ import '../theme/app_tokens.dart';
 import '../utils/formatters.dart';
 import '../widgets/app_card.dart';
 import '../widgets/chapter_tile.dart';
-import '../widgets/qaabil_logo.dart';
+import '../widgets/qaabil_app_bar.dart';
 
 /// The page for one course, following the layout of qaabil.io/courses/18:
 /// title, a row of stats, then every section with its chapters.
@@ -25,7 +25,7 @@ class CourseDetailScreen extends StatelessWidget {
     return Scaffold(
       // Flutter adds the ← back button automatically, because this screen
       // was opened with Navigator.push.
-      appBar: AppBar(toolbarHeight: 64, title: const QaabilLogo(height: 36)),
+      appBar: const QaabilAppBar(),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(

@@ -4,7 +4,7 @@ import '../models/curriculum.dart';
 /// Hard-coded courses used until we connect a real backend.
 ///
 /// This is `final` instead of `const` because `DateTime(...)` can't be const.
-/// The curricula are short samples, not the full Cambridge syllabuses.
+/// The curricula are short samples, not the full Cambridge course content.
 final List<Course> mockCourses = [
   Course(
     title: 'Mathematics (0580)',

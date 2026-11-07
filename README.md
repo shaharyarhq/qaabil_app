@@ -1,5 +1,7 @@
 # qaabil_mobile
 
+For project status, local setup pointers, and the next task, read [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md).
+
 A new Flutter project.
 
 ## Getting Started

@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
 
-/// Text styles used across the app.
-///
-/// qaabil.io pairs a clean sans-serif (Plus Jakarta Sans) with an italic
-/// serif (Instrument Serif) for one or two highlighted words in headings.
+/// Bold, rounded typography for the playful Qaabil interface.
 class AppTextStyles {
   AppTextStyles._();
 
@@ -15,19 +12,19 @@ class AppTextStyles {
   /// Big page headings, e.g. "Welcome back".
   static const TextStyle heading = TextStyle(
     fontFamily: sans,
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: FontWeight.w800,
     height: 1.25,
     letterSpacing: -0.5,
     color: AppColors.textPrimary,
   );
 
-  /// The highlighted words inside a heading.
+  /// Bold highlighted words inside a heading.
   static const TextStyle headingAccent = TextStyle(
-    fontFamily: serif,
-    fontStyle: FontStyle.italic,
-    fontWeight: FontWeight.w400,
-    fontSize: 32,
+    fontFamily: sans,
+    fontStyle: FontStyle.normal,
+    fontWeight: FontWeight.w800,
+    fontSize: 30,
     letterSpacing: 0,
     color: AppColors.navy,
   );
@@ -44,7 +41,7 @@ class AppTextStyles {
   /// Big course card titles.
   static const TextStyle cardTitle = TextStyle(
     fontFamily: sans,
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: FontWeight.w800,
     height: 1.3,
     letterSpacing: -0.3,
@@ -68,10 +65,10 @@ class AppTextStyles {
     color: AppColors.textMuted,
   );
 
-  /// Small italic serif text, e.g. "4 days ago".
+  /// Compact course metadata, e.g. "4 days ago".
   static const TextStyle serifCaption = TextStyle(
-    fontFamily: serif,
-    fontStyle: FontStyle.italic,
+    fontFamily: sans,
+    fontStyle: FontStyle.normal,
     fontSize: 14,
     color: AppColors.textMuted,
   );
@@ -88,8 +85,8 @@ class AppTextStyles {
   static const TextStyle body = TextStyle(
     fontFamily: sans,
     fontSize: 14,
-    fontWeight: FontWeight.w400,
-    height: 1.6,
+    fontWeight: FontWeight.w500,
+    height: 1.5,
     color: AppColors.textSecondary,
   );
 
@@ -97,7 +94,7 @@ class AppTextStyles {
   static const TextStyle label = TextStyle(
     fontFamily: sans,
     fontSize: 13.5,
-    fontWeight: FontWeight.w600,
+    fontWeight: FontWeight.w700,
     color: AppColors.textPrimary,
   );
 
@@ -105,6 +102,7 @@ class AppTextStyles {
   static const TextStyle button = TextStyle(
     fontFamily: sans,
     fontSize: 15,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w800,
+    letterSpacing: 0.2,
   );
 }

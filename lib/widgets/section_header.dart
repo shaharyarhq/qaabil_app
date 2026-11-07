@@ -4,11 +4,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../theme/app_tokens.dart';
 
-/// The heading pattern used all over qaabil.io:
-///
-///   ▬ SMALL LABEL
-///   A bold heading with *italic serif* words
-///   Optional grey subtitle.
+/// A friendly page introduction with a decorative book badge.
 class SectionHeader extends StatelessWidget {
   const SectionHeader({
     super.key,
@@ -25,7 +21,7 @@ class SectionHeader extends StatelessWidget {
   /// The plain part of the heading.
   final String title;
 
-  /// The words shown in the italic serif font, after [title].
+  /// Emphasized words following the title.
   final String accent;
 
   final String? subtitle;
@@ -41,11 +37,11 @@ class SectionHeader extends StatelessWidget {
         Row(
           children: [
             Container(
-              width: 18,
-              height: 3,
+              width: 12,
+              height: 12,
               decoration: BoxDecoration(
                 color: AppColors.amber,
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.circular(4),
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
@@ -53,19 +49,44 @@ class SectionHeader extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.md),
-        Text.rich(
-          TextSpan(
-            text: title,
-            children: [
-              TextSpan(text: accent, style: AppTextStyles.headingAccent),
-              if (sparkle)
-                const TextSpan(
-                  text: ' ✦',
-                  style: TextStyle(color: AppColors.amber, fontSize: 20),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Text.rich(
+                TextSpan(
+                  text: title,
+                  children: [
+                    TextSpan(text: accent, style: AppTextStyles.headingAccent),
+                    if (sparkle)
+                      const TextSpan(
+                        text: ' ✦',
+                        style: TextStyle(color: AppColors.amber, fontSize: 20),
+                      ),
+                  ],
                 ),
-            ],
-          ),
-          style: AppTextStyles.heading,
+                style: AppTextStyles.heading,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Container(
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                color: AppColors.amberTint,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.amber, width: 2),
+                boxShadow: const [
+                  BoxShadow(color: AppColors.amberDark, offset: Offset(0, 4)),
+                ],
+              ),
+              child: const Icon(
+                Icons.auto_stories_rounded,
+                size: 30,
+                color: AppColors.navy,
+              ),
+            ),
+          ],
         ),
         if (subtitle != null) ...[
           const SizedBox(height: AppSpacing.sm),

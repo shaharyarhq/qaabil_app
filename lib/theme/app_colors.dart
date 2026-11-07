@@ -1,32 +1,37 @@
 import 'package:flutter/material.dart';
 
-/// Brand colors taken from qaabil.io.
-///
-/// Use these names instead of writing hex values in screens, so the
-/// whole app can be re-colored from this one file.
+/// Qaabil's navy/amber identity with friendly, high-contrast supporting colours.
 class AppColors {
   AppColors._();
+  static const navy = Color(0xFF1B3A6B);
+  static const navyDark = Color(0xFF122952);
+  static const amber = Color(0xFFFFBF47);
+  static const amberDark = Color(0xFFE59B19);
+  static const amberTint = Color(0xFFFFF4D6);
+  static const amberText = Color(0xFF965800);
+  static const background = Color(0xFFFBFCFF);
+  static const surface = Colors.white;
+  static const navyTint = Color(0xFFECF2FF);
+  static const textPrimary = Color(0xFF243B53);
+  static const textSecondary = Color(0xFF53677F);
+  static const textMuted = Color(0xFF6C7F95);
+  static const border = Color(0xFFDDE5EF);
+  static const error = Color(0xFFD43D46);
+  static const sky = Color(0xFF249ACB);
+  static const skyTint = Color(0xFFE8F7FF);
+  static const violet = Color(0xFF7251B5);
+  static const violetTint = Color(0xFFF1EAFF);
+  static const teal = Color(0xFF147D6C);
+  static const tealTint = Color(0xFFE6F8F0);
+  static const coral = Color(0xFFAD4B37);
+  static const coralTint = Color(0xFFFFF0E9);
 
-  // Brand
-  static const Color navy = Color(0xFF1B3A6B); // main brand color
-  static const Color navyDark = Color(0xFF122952); // pressed navy buttons
-  static const Color amber = Color(0xFFF59E0B); // accent bars, highlights
-  static const Color amberDark = Color(0xFFD97706);
-  static const Color amberTint = Color(0xFFFFFBEB); // pill background
-  static const Color amberText = Color(0xFFB45309); // pill text
-
-  // Backgrounds
-  static const Color background = Color(0xFFF8FAFD); // page background
-  static const Color surface = Colors.white; // cards, inputs, app bar
-  static const Color navyTint = Color(0xFFEFF6FF); // soft blue fill
-
-  // Text
-  static const Color textPrimary = Color(0xFF0F172A); // headings
-  static const Color textSecondary = Color(0xFF475569); // body text
-  static const Color textMuted = Color(0xFF94A3B8); // hints, small print
-
-  // Lines
-  static const Color border = Color(0xFFE2E8F0);
-
-  static const Color error = Color(0xFFDC2626);
+  // Stable decorative accents; progress status colours keep their own meaning.
+  static const learningAccents = [
+    (navy, navyTint),
+    (violet, violetTint),
+    (teal, tealTint),
+    (amberText, amberTint),
+    (coral, coralTint),
+  ];
 }

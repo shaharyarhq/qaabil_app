@@ -1,92 +1,132 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
-import '../data/mock_courses.dart';
-import '../models/course.dart';
+import '../auth/member_session.dart';
+import '../models/catalogue_course.dart';
 import '../models/course_sort.dart';
+import '../services/member_api.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../theme/app_tokens.dart';
 import '../widgets/course_card.dart';
 import '../widgets/filter_pill.dart';
-import '../widgets/qaabil_logo.dart';
+import '../widgets/qaabil_app_bar.dart';
 import '../widgets/search_field.dart';
 import '../widgets/section_header.dart';
 import '../widgets/sort_button.dart';
-import 'course_detail_screen.dart';
+import 'member_course_screen.dart';
 
-/// Lists all courses with a search bar, qualification filters and sorting,
-/// following the layout of qaabil.io/courses.
-///
-/// This is a StatefulWidget because the search text and chosen filters
-/// change while the user is on the screen.
+/// The public catalogue uses the same Laravel course records as the website.
 class CoursesScreen extends StatefulWidget {
   const CoursesScreen({super.key});
-
   @override
   State<CoursesScreen> createState() => _CoursesScreenState();
 }
 
 class _CoursesScreenState extends State<CoursesScreen> {
   final _searchController = TextEditingController();
-
-  /// The selected qualification. `null` means "All".
-  Qualification? _qualification;
-
+  final List<CatalogueCourse> _courses = [];
+  List<CatalogueQualification> _qualifications = [];
+  MemberApi? _api;
+  Timer? _debounce;
+  int? _qualification;
   CourseSort _sort = CourseSort.newest;
+  int _version = 0, _page = 0, _lastPage = 1, _total = 0, _catalogueTotal = 0;
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final api = SessionScope.of(context).api;
+    if (_api != api) {
+      _api = api;
+      _load(reset: true);
+    }
+  }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
-  /// The courses to show after applying search, filter and sort.
-  List<Course> get _visibleCourses {
-    final query = _searchController.text.trim().toLowerCase();
-
-    final courses = mockCourses.where((course) {
-      final matchesFilter =
-          _qualification == null || course.qualification == _qualification;
-      final matchesSearch =
-          query.isEmpty ||
-          course.title.toLowerCase().contains(query) ||
-          course.description.toLowerCase().contains(query) ||
-          course.qualification.label.toLowerCase().contains(query);
-      return matchesFilter && matchesSearch;
-    }).toList();
-
-    courses.sort(
-      (a, b) => _sort == CourseSort.newest
-          ? b.addedOn.compareTo(a.addedOn)
-          : a.addedOn.compareTo(b.addedOn),
-    );
-    return courses;
+  void _queryChanged({bool debounce = false}) {
+    _debounce?.cancel();
+    // Invalidate older responses immediately, including during the debounce.
+    _version++;
+    setState(() {
+      _courses.clear();
+      _page = 0;
+      _total = 0;
+      _loading = true;
+      _error = null;
+    });
+    if (debounce) {
+      _debounce = Timer(
+        const Duration(milliseconds: 300),
+        () => _load(reset: true),
+      );
+    } else {
+      _load(reset: true);
+    }
   }
 
-  int _countFor(Qualification qualification) {
-    return mockCourses.where((c) => c.qualification == qualification).length;
+  Future<void> _load({bool reset = false}) async {
+    if (_loading && !reset) return;
+    _debounce?.cancel();
+    final version = ++_version;
+    setState(() {
+      _loading = true;
+      _error = null;
+      if (reset) {
+        _courses.clear();
+        _page = 0;
+      }
+    });
+    try {
+      final result = await _api!.catalogue(
+        search: _searchController.text,
+        qualification: _qualification,
+        sort: _sort.name,
+        page: reset ? 1 : _page + 1,
+      );
+      if (!mounted || version != _version) return;
+      setState(() {
+        _courses.addAll(result.courses);
+        _qualifications = result.qualifications;
+        _page = result.page;
+        _lastPage = result.lastPage;
+        _total = result.total;
+        _catalogueTotal = result.catalogueTotal;
+      });
+    } on ApiException catch (e) {
+      if (mounted && version == _version) setState(() => _error = e.message);
+    } finally {
+      if (mounted && version == _version) setState(() => _loading = false);
+    }
   }
 
   void _clearSearchAndFilters() {
     _searchController.clear();
-    setState(() => _qualification = null);
+    _qualification = null;
+    _queryChanged();
   }
 
   @override
-  Widget build(BuildContext context) {
-    final courses = _visibleCourses;
-
-    return Scaffold(
-      appBar: AppBar(toolbarHeight: 64, title: const QaabilLogo(height: 36)),
-      // Tapping outside the search box closes the keyboard.
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: AppSpacing.gridMaxWidth,
-            ),
+  Widget build(BuildContext context) => Scaffold(
+    appBar: const QaabilAppBar(),
+    body: GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: AppSpacing.gridMaxWidth),
+          child: RefreshIndicator(
+            onRefresh: () => _load(reset: true),
             child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(AppSpacing.screen),
               children: [
                 const SectionHeader(
@@ -98,61 +138,89 @@ class _CoursesScreenState extends State<CoursesScreen> {
                 const SizedBox(height: AppSpacing.xl),
                 SearchField(
                   controller: _searchController,
-                  // Rebuild so the list (and the ✕ button) update as you type.
-                  onChanged: (_) => setState(() {}),
-                  onClear: () => setState(_searchController.clear),
+                  onChanged: (_) => _queryChanged(debounce: true),
+                  onClear: () {
+                    _searchController.clear();
+                    _queryChanged();
+                  },
                 ),
                 const SizedBox(height: AppSpacing.md),
-                _buildQualificationFilters(),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      FilterPill(
+                        label: 'All',
+                        count: _catalogueTotal,
+                        selected: _qualification == null,
+                        onTap: () {
+                          _qualification = null;
+                          _queryChanged();
+                        },
+                      ),
+                      for (final q in _qualifications) ...[
+                        const SizedBox(width: AppSpacing.sm),
+                        FilterPill(
+                          label: q.name,
+                          count: q.count,
+                          selected: _qualification == q.id,
+                          onTap: () {
+                            _qualification = q.id;
+                            _queryChanged();
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
                 const SizedBox(height: AppSpacing.xl),
                 Row(
                   children: [
-                    Expanded(child: _ResultCount(count: courses.length)),
+                    Expanded(child: _ResultCount(count: _total)),
                     SortButton(
                       value: _sort,
-                      onChanged: (sort) => setState(() => _sort = sort),
+                      onChanged: (sort) {
+                        _sort = sort;
+                        _queryChanged();
+                      },
                     ),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.lg),
-                if (courses.isEmpty)
-                  _NoResults(onClear: _clearSearchAndFilters)
-                else
-                  _CourseGrid(courses: courses),
+                if (_loading && _courses.isEmpty)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+                if (_error != null)
+                  Column(
+                    children: [
+                      Text(_error!, textAlign: TextAlign.center),
+                      TextButton(
+                        onPressed: _loading
+                            ? null
+                            : () => _load(reset: _courses.isEmpty),
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                if (!_loading && _error == null && _courses.isEmpty)
+                  _NoResults(onClear: _clearSearchAndFilters),
+                _CourseGrid(courses: _courses),
+                if (_courses.isNotEmpty && _page < _lastPage)
+                  TextButton(
+                    onPressed: _loading ? null : () => _load(),
+                    child: Text(_loading ? 'Loading…' : 'Load more courses'),
+                  ),
               ],
             ),
           ),
         ),
       ),
-    );
-  }
-
-  /// "All 7", "Cambridge IGCSE 4", "Cambridge A-Level 3" in a row that
-  /// scrolls sideways if it doesn't fit.
-  Widget _buildQualificationFilters() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          FilterPill(
-            label: 'All',
-            count: mockCourses.length,
-            selected: _qualification == null,
-            onTap: () => setState(() => _qualification = null),
-          ),
-          for (final qualification in Qualification.values) ...[
-            const SizedBox(width: AppSpacing.sm),
-            FilterPill(
-              label: qualification.label,
-              count: _countFor(qualification),
-              selected: _qualification == qualification,
-              onTap: () => setState(() => _qualification = qualification),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
+    ),
+  );
 }
 
 /// "Showing 7 courses", with the number in bold navy.
@@ -186,7 +254,7 @@ class _ResultCount extends StatelessWidget {
 class _CourseGrid extends StatelessWidget {
   const _CourseGrid({required this.courses});
 
-  final List<Course> courses;
+  final List<CatalogueCourse> courses;
 
   @override
   Widget build(BuildContext context) {
@@ -212,7 +280,8 @@ class _CourseGrid extends StatelessWidget {
                   // so the back button returns to the list.
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (context) => CourseDetailScreen(course: course),
+                      builder: (context) =>
+                          MemberCourseScreen(courseId: course.id),
                     ),
                   ),
                 ),

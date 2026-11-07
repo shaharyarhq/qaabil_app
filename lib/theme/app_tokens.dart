@@ -34,11 +34,11 @@ class AppSpacing {
 class AppRadius {
   AppRadius._();
 
-  static const double sm = 8; // small chips, nav pills
-  static const double md = 10; // buttons and text fields
-  static const double control = 14; // search bar, filters, sort menu
-  static const double lg = 16; // cards
-  static const double xl = 20; // large feature cards, course cards
+  static const double sm = 12; // small chips, nav pills
+  static const double md = 16; // buttons and text fields
+  static const double control = 18; // search bar, filters, sort menu
+  static const double lg = 22; // cards
+  static const double xl = 26; // large feature cards, course cards
 
   static BorderRadius get button => BorderRadius.circular(md);
   static BorderRadius get controlRadius => BorderRadius.circular(control);
@@ -46,27 +46,13 @@ class AppRadius {
   static BorderRadius get panel => BorderRadius.circular(xl);
 }
 
-/// Shadows. The website uses soft, navy-tinted shadows rather than grey.
+/// Crisp lower edges give cards a friendly, tactile appearance.
 class AppShadows {
   AppShadows._();
-
-  /// For cards in a list.
-  static List<BoxShadow> get card => [
-    BoxShadow(
-      color: AppColors.navy.withValues(alpha: 0.08),
-      offset: const Offset(0, 12),
-      blurRadius: 28,
-      spreadRadius: -8,
-    ),
+  static List<BoxShadow> get card => const [
+    BoxShadow(color: AppColors.border, offset: Offset(0, 4), blurRadius: 0),
   ];
-
-  /// For a single panel that should stand out, like the login form.
-  static List<BoxShadow> get raised => [
-    BoxShadow(
-      color: AppColors.navy.withValues(alpha: 0.15),
-      offset: const Offset(0, 20),
-      blurRadius: 40,
-      spreadRadius: -12,
-    ),
+  static List<BoxShadow> get raised => const [
+    BoxShadow(color: AppColors.border, offset: Offset(0, 6), blurRadius: 0),
   ];
 }

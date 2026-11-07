@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../auth/member_session.dart';
+
 import '../models/curriculum.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../theme/app_tokens.dart';
 import '../utils/formatters.dart';
 import 'app_card.dart';
-import 'youtube_video.dart';
+import '../screens/login_screen.dart';
 
 /// One chapter on the course page. Tap it to open or close its
 /// learning objectives:
@@ -134,7 +136,26 @@ class _ObjectiveRow extends StatelessWidget {
           const SizedBox(height: AppSpacing.md),
           // Show the video if this objective has one.
           if (objective.youtubeVideoId != null)
-            YoutubeVideo(videoId: objective.youtubeVideoId!)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  SessionScope.of(context).member == null
+                      ? 'Log in to access videos'
+                      : 'Member video access is being connected',
+                  style: AppTextStyles.label,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                if (SessionScope.of(context).member == null)
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.lock_outline, size: 18),
+                    label: const Text('Login to watch'),
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    ),
+                  ),
+              ],
+            )
           else
             Text('🎬  No videos available yet', style: AppTextStyles.caption),
         ],
