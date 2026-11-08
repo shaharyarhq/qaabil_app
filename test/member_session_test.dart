@@ -116,18 +116,33 @@ void main() {
     api.close();
   });
 
-  testWidgets('Member can log in, view real profile fields and sign out', (
+  testWidgets('Member can log in, edit profile fields and sign out', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    var saves = 0;
     final api = MemberApi(
       baseUrl: 'https://example.test/api/v1',
       client: MockClient((request) async {
         if (request.url.path.endsWith('/login')) {
           return http.Response(
             jsonEncode({'token': 'test-token', 'user': user}),
+            200,
+          );
+        }
+        if (request.method == 'POST' && request.url.path.endsWith('/me')) {
+          expect(request.headers['Authorization'], 'Bearer test-token');
+          expect(request.bodyFields, {
+            'full_name': 'Updated Member',
+            'school': '',
+          });
+          if (++saves == 1) return http.Response('{}', 503);
+          return http.Response(
+            jsonEncode({
+              'user': {...user, 'full_name': 'Updated Member', 'school': null},
+            }),
             200,
           );
         }
@@ -153,6 +168,29 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('member@example.test'), findsOneWidget);
     expect(find.text('Test School'), findsOneWidget);
+    await tester.tap(find.text('Edit profile'));
+    await tester.pumpAndSettle();
+    final fields = find.byType(TextFormField);
+    expect(
+      tester.widget<TextFormField>(fields.first).controller!.text,
+      'Example Member',
+    );
+    await tester.enterText(fields.first, ' Updated Member ');
+    await tester.enterText(fields.last, '');
+    await tester.tap(find.text('Save profile'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('The member service is unavailable. Please try again later.'),
+      findsOneWidget,
+    );
+    expect(session.member!.school, 'Test School');
+    await tester.tap(find.text('Save profile'));
+    await tester.pumpAndSettle();
+    expect(find.text('Updated Member'), findsOneWidget);
+    expect(find.text('Not added'), findsOneWidget);
+    expect(find.text('Profile saved'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Sign out'));
     await tester.pumpAndSettle();
     expect(find.text('Login to your account'), findsOneWidget);
@@ -160,4 +198,122 @@ void main() {
     session.dispose();
     api.close();
   });
+  testWidgets(
+    'Forgot password requests a code and changes the password inside the app',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final code = List.filled(64, 'a').join();
+      final calls = <String>[];
+      final api = MemberApi(
+        baseUrl: 'https://example.test/api/v1',
+        client: MockClient((request) async {
+          if (request.method != 'POST') return http.Response('{}', 200);
+          calls.add(request.url.path);
+          expect(request.bodyFields['email'], 'member@example.test');
+          if (request.url.path.endsWith('/reset')) {
+            expect(request.bodyFields['token'], code);
+            expect(
+              request.bodyFields['password_confirmation'],
+              'updated-password',
+            );
+          }
+          return http.Response('{}', 200);
+        }),
+      );
+      final session = MemberSession(api: api, store: MemoryTokenStore());
+      await tester.pumpWidget(QaabilApp(session: session));
+      await tester.pumpAndSettle();
+
+      Future<void> tap(String label) async {
+        await tester.ensureVisible(find.text(label));
+        await tester.tap(find.text(label));
+        await tester.pumpAndSettle();
+      }
+
+      await tap('Login');
+      await tap('Forgot password?');
+      final fields = find.byType(TextFormField);
+      await tester.enterText(fields.first, 'member@example.test');
+      await tap('Send reset code');
+      await tester.enterText(fields.at(1), code);
+      await tester.enterText(fields.at(2), 'updated-password');
+      await tester.enterText(fields.at(3), 'updated-password');
+      await tap('Change password');
+      expect(calls, [
+        '/api/v1/member/password/request',
+        '/api/v1/member/password/reset',
+      ]);
+      expect(
+        find.text('Password changed. Sign in with your new password.'),
+        findsOneWidget,
+      );
+      await tester.pumpWidget(const SizedBox());
+      session.dispose();
+      api.close();
+    },
+  );
+  testWidgets(
+    'Profile opens the member submissions list and loads the next page',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final pages = <String?>[];
+      final api = MemberApi(
+        baseUrl: 'https://example.test/api/v1',
+        client: MockClient((request) async {
+          if (request.url.path.endsWith('/me')) {
+            return http.Response(jsonEncode({'user': user}), 200);
+          }
+          if (request.url.path.endsWith('/submissions')) {
+            expect(request.headers['Authorization'], 'Bearer test-token');
+            final page = request.url.queryParameters['page'];
+            pages.add(page);
+            final first = page == '1';
+            return http.Response(
+              jsonEncode({
+                'data': [
+                  {
+                    'id': first ? 7 : 6,
+                    'title': first ? 'Fraction practice' : 'Basic equations',
+                    'status': first ? 'pending' : 'rejected',
+                    'course': 'Math',
+                    'objective': 'Solve a problem',
+                  },
+                ],
+                'meta': {'current_page': first ? 1 : 2, 'last_page': 2},
+              }),
+              200,
+            );
+          }
+          return http.Response('{}', 200);
+        }),
+      );
+      final session = MemberSession(
+        api: api,
+        store: MemoryTokenStore()..token = 'test-token',
+      );
+      await tester.pumpWidget(QaabilApp(session: session));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Profile'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('My Video Submissions'));
+      await tester.tap(find.text('My Video Submissions'));
+      await tester.pumpAndSettle();
+      expect(find.text('Pending review'), findsOneWidget);
+      expect(find.text('Math › Solve a problem'), findsOneWidget);
+      await tester.ensureVisible(find.text('Load more submissions'));
+      await tester.tap(find.text('Load more submissions'));
+      await tester.pumpAndSettle();
+      expect(find.text('Fraction practice'), findsOneWidget);
+      expect(find.text('Rejected'), findsOneWidget);
+      expect(pages, ['1', '2']);
+      expect(find.text('Load more submissions'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+      session.dispose();
+      api.close();
+    },
+  );
 }

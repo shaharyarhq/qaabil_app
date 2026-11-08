@@ -1,6 +1,6 @@
 # Qaabil mobile handoff
 
-Last updated 2026-11-07. Read this first when resuming in a new chat. Use the current source and working-tree status to verify anything that may have changed.
+Last updated 2026-11-08. Read this first when resuming in a new chat. Use the current source and working-tree status to verify anything that may have changed.
 
 ## Scope and working preferences
 
@@ -14,11 +14,15 @@ Last updated 2026-11-07. Read this first when resuming in a new chat. Use the cu
 ## Current implementation
 
 - Public catalogue, search and filters, and course content down to learning objectives.
-- Member login, session restoration, sign-out, and read-only profile and learning progress.
+- Member login, session restoration, sign-out, and read-only learning progress. Members can edit or clear their full name and school from Profile. `POST /api/v1/member/me` updates the same user fields the website reads and returns the refreshed profile.
 - Approved YouTube playback for signed-in members, video details, related videos, and review submission and deletion. Objective/video materials and course, section, and chapter notes use authenticated downloads and the device viewer.
 - Past Papers browsing is wired to the member API. It supports paper name search, course/year/sitting filters, pagination, and available question papers, marking schemes, and examiner reports.
 - Past Papers verification on 2026-11-07 included six passing Flutter widget tests, seven passing Laravel API tests, and a successful Waydroid launch. The local database had two visible papers. Signed-in opening in an external device viewer still needs a manual check.
-- Next Past Papers slice is saving personal marks and exporting a progress report. Follow the website's active Past Papers actions and validate score ownership and bounds. Native quizzes, profile editing, and submission management are separate later features.
+- Members can add and edit whole-number marks for papers with a maximum. The member API reads and writes the same score records as the website and returns only the signed-in member's score.
+- Members can export a course's Past Papers progress report from the app. Web and mobile share the Laravel report renderer. The PDF includes only the signed-in member's marks and opens through the device viewer. The report passed the isolated API tests and a visual check using sample marks. Opening it in a real device viewer still needs a signed-in check.
+- **Forgot password?** runs inside the app. `POST /api/v1/member/password/request` emails a Laravel reset code. Members paste it into the app and submit a new password through `POST /api/v1/member/password/reset`. The broker consumes the code and existing mobile tokens are revoked. Local Laravel mail was switched from Mailpit to Gmail SMTP over TLS on port 465. Gmail accepted a reset email for the demo account. Inbox receipt and a live reset still need the account owner's check.
+- **Profile → My Video Submissions** lists the signed-in member's existing website submissions and review statuses through `GET /api/v1/member/submissions`. The list includes the course context, submission date, refresh, and pagination.
+- Next submissions slice is creating a YouTube submission from the app. Trace the member website form and keep Laravel's review process. Editing submissions and native quizzes are separate slices.
 
 ## Where to look
 

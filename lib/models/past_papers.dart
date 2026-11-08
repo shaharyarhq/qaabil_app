@@ -42,12 +42,25 @@ class PastPaper {
     required this.details,
     required this.documents,
     this.totalMarks,
+    this.myScore,
   });
   final int id, year;
   final String name, sitting, details;
   final PaperCourse course;
-  final int? totalMarks;
+  final int? totalMarks, myScore;
   final List<PaperDocument> documents;
+  PastPaper withScore(int score) => PastPaper(
+    id: id,
+    name: name,
+    course: course,
+    year: year,
+    sitting: sitting,
+    details: details,
+    documents: documents,
+    totalMarks: totalMarks,
+    myScore: score,
+  );
+
   factory PastPaper.fromJson(Map<String, dynamic> json) => PastPaper(
     id: json['id'] as int,
     name: json['paper_name'] as String,
@@ -56,6 +69,7 @@ class PastPaper {
     sitting: json['sitting'] as String? ?? '',
     details: json['other_details'] as String? ?? '',
     totalMarks: (json['total_marks'] as num?)?.toInt(),
+    myScore: (json['my_score'] as num?)?.toInt(),
     documents: (json['documents'] as List<dynamic>)
         .map((file) => PaperDocument.fromJson(file as Map<String, dynamic>))
         .toList(),

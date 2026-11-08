@@ -132,10 +132,7 @@ Future<void> _tap(WidgetTester tester, String text) async {
       scrollable: find.byType(Scrollable).first,
     );
   }
-  await Scrollable.ensureVisible(
-    tester.element(target.first),
-    alignment: 0.4,
-  );
+  await Scrollable.ensureVisible(tester.element(target.first), alignment: 0.4);
   await tester.pumpAndSettle();
   await tester.tap(find.text(text).first);
   await tester.pumpAndSettle();
@@ -277,6 +274,11 @@ void main() {
     expect(files.opened.length, 1);
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byType(TextField),
+      -250,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.enterText(find.byType(TextField), 'No matching paper');
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pumpAndSettle();
@@ -316,6 +318,69 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('New result'), findsNothing);
       expect(find.text('Login to your account'), findsOneWidget);
+    },
+  );
+  testWidgets(
+    'Marks editor validates bounds, retries and displays saved zero',
+    (tester) async {
+      var attempts = 0;
+      await _open(tester, (request) async {
+        if (request.method == 'GET') return _json(_page());
+        expect(request.url.path, '/api/v1/member/past-papers/8/score');
+        expect(request.bodyFields, {'score': '0'});
+        return ++attempts == 1 ? _json({}, 503) : _json({'score': 0});
+      });
+
+      await _tap(tester, 'Add marks');
+      final field = find.byType(TextFormField);
+      await tester.enterText(field, '81');
+      await tester.tap(find.text('Save marks'));
+      await tester.pumpAndSettle();
+      expect(find.text('Enter a whole number from 0 to 80.'), findsOneWidget);
+      expect(attempts, 0);
+
+      await tester.enterText(field, '0');
+      await tester.tap(find.text('Save marks'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('The member service is unavailable. Please try again later.'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Save marks'));
+      await tester.pumpAndSettle();
+      expect(find.text('Your marks: 0 / 80'), findsOneWidget);
+      await _tap(tester, 'Your marks: 0 / 80');
+      expect(tester.widget<TextFormField>(field).initialValue, '0');
+    },
+  );
+  testWidgets(
+    'Progress report rejects an invalid download and opens the selected course PDF on retry',
+    (tester) async {
+      var requests = 0;
+      final files = _Files();
+      await _open(tester, (request) async {
+        if (request.url.path.endsWith('/past-papers')) return _json(_page());
+        expect(request.url.path, '/api/v1/member/past-papers/reports/14');
+        return http.Response(
+          ++requests == 1 ? '<html>error</html>' : '%PDF-1.4 paper',
+          200,
+        );
+      }, files: files);
+
+      await _tap(tester, 'Progress report');
+      await tester.tap(find.text('Open PDF'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          'The progress report did not arrive as a PDF. Please try again.',
+        ),
+        findsOneWidget,
+      );
+      expect(files.opened, isEmpty);
+      await tester.tap(find.text('Open PDF'));
+      await tester.pumpAndSettle();
+      expect(files.opened, ['past-papers-report.pdf']);
+      expect(find.text('Past Papers progress report'), findsNothing);
     },
   );
 }

@@ -6,6 +6,7 @@ import '../theme/app_tokens.dart';
 import '../widgets/app_card.dart';
 import '../widgets/qaabil_logo.dart';
 import '../widgets/section_header.dart';
+import 'password_reset_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -32,6 +33,23 @@ class _LoginScreenState extends State<LoginScreen> {
     final success = await SessionScope.of(context)
         .login(_email.text.trim(), _password.text);
     if (mounted && success) Navigator.of(context).pop();
+  }
+
+  Future<void> _openPasswordReset() async {
+    FocusScope.of(context).unfocus();
+    final reset = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => PasswordResetScreen(email: _email.text.trim()),
+      ),
+    );
+    if (mounted && reset == true) {
+      _password.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password changed. Sign in with your new password.'),
+        ),
+      );
+    }
   }
 
   @override
@@ -147,6 +165,12 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ),
                                     )
                                   : const Text('Login'),
+                            ),
+                            TextButton(
+                              onPressed: session.busy || !session.api.configured
+                                  ? null
+                                  : _openPasswordReset,
+                              child: const Text('Forgot password?'),
                             ),
                           ],
                         ),

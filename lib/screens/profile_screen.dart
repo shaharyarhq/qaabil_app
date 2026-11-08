@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../auth/member.dart';
 import '../auth/member_session.dart';
+import '../services/member_api.dart';
+import '../widgets/primary_button.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../theme/app_tokens.dart';
 import '../widgets/app_card.dart';
 import '../widgets/qaabil_app_bar.dart';
 import 'member_area_screen.dart';
+import 'my_submissions_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key, required this.onBrowseCourses});
@@ -89,10 +93,44 @@ class ProfileScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     Text(member.email, style: AppTextStyles.body),
-                    if (member.fullName?.isNotEmpty ?? false)
-                      Text(member.fullName!, style: AppTextStyles.body),
-                    if (member.school?.isNotEmpty ?? false)
-                      Text(member.school!, style: AppTextStyles.body),
+                    const SizedBox(height: AppSpacing.lg),
+                    const Text('Full name', style: AppTextStyles.label),
+                    Text(
+                      member.fullName ?? 'Not added',
+                      style: AppTextStyles.body,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    const Text(
+                      'School / College / University',
+                      style: AppTextStyles.label,
+                    ),
+                    Text(
+                      member.school ?? 'Not added',
+                      style: AppTextStyles.body,
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                    PrimaryButton(
+                      onPressed: session.busy
+                          ? null
+                          : () async {
+                              final saved = await showDialog<bool>(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (_) => _EditProfileDialog(
+                                  member: member,
+                                  session: session,
+                                ),
+                              );
+                              if (saved == true && context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Profile saved'),
+                                  ),
+                                );
+                              }
+                            },
+                      child: const Text('Edit profile'),
+                    ),
                     const SizedBox(height: AppSpacing.xl),
                     if (session.error != null)
                       Text(
@@ -109,9 +147,30 @@ class ProfileScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
-              const Text(
-                'Profile editing will be connected next.',
-                style: AppTextStyles.body,
+              AppCard(
+                child: Material(
+                  color: Colors.transparent,
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(
+                      Icons.video_library_outlined,
+                      color: AppColors.violet,
+                    ),
+                    title: const Text(
+                      'My Video Submissions',
+                      style: AppTextStyles.title,
+                    ),
+                    subtitle: const Text(
+                      'Follow the review status of your videos.',
+                    ),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const MySubmissionsScreen(),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
@@ -119,4 +178,108 @@ class ProfileScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+class _EditProfileDialog extends StatefulWidget {
+  const _EditProfileDialog({required this.member, required this.session});
+
+  final Member member;
+  final MemberSession session;
+
+  @override
+  State<_EditProfileDialog> createState() => _EditProfileDialogState();
+}
+
+class _EditProfileDialogState extends State<_EditProfileDialog> {
+  late final _name = TextEditingController(text: widget.member.fullName);
+  late final _school = TextEditingController(text: widget.member.school);
+  final _form = GlobalKey<FormState>();
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _school.dispose();
+    super.dispose();
+  }
+
+  String? _validate(String? value) => (value ?? '').trim().runes.length > 120
+      ? 'Use 120 characters or fewer.'
+      : null;
+
+  Future<void> _save() async {
+    if (!_form.currentState!.validate()) return;
+    if (widget.session.member?.id != widget.member.id) {
+      setState(() => _error = 'Sign in again to edit your profile.');
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await widget.session.updateProfile(_name.text, _school.text);
+      if (mounted) Navigator.of(context).pop(true);
+    } on ApiException catch (error) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = error.message;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+    canPop: !_saving,
+    child: AlertDialog(
+      scrollable: true,
+      title: const Text('Edit profile'),
+      content: Form(
+        key: _form,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: _name,
+              enabled: !_saving,
+              textCapitalization: TextCapitalization.words,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(labelText: 'Full name'),
+              validator: _validate,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextFormField(
+              controller: _school,
+              enabled: !_saving,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(
+                labelText: 'School / College / University',
+              ),
+              validator: _validate,
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _saving ? null : _save,
+          child: Text(_saving ? 'Saving…' : 'Save profile'),
+        ),
+      ],
+    ),
+  );
 }

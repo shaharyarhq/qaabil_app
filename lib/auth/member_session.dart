@@ -7,6 +7,7 @@ import '../models/member_course.dart';
 import '../models/objective_resources.dart';
 import '../models/video_details.dart';
 import '../models/past_papers.dart';
+import '../models/video_submission.dart';
 import '../services/note_files.dart';
 
 abstract class TokenStore {
@@ -138,8 +139,22 @@ class MemberSession extends ChangeNotifier {
     }
   }
 
+  Future<void> updateProfile(String fullName, String school) async {
+    final token = _token;
+    final updated = await _authorized(
+      (token) => api.updateProfile(token, fullName, school),
+    );
+    if (_token == token) {
+      member = updated;
+      _notify();
+    }
+  }
+
   Future<MemberCoursePage> courses({int page = 1}) =>
       _authorized((token) => api.courses(token, page: page));
+
+  Future<SubmissionPage> submissions({int page = 1}) =>
+      _authorized((token) => api.submissions(token, page: page));
 
   Future<PastPaperPage> pastPapers({
     String search = '',
@@ -157,6 +172,26 @@ class MemberSession extends ChangeNotifier {
       page: page,
     ),
   );
+
+  Future<int> savePaperScore(int paperId, int score) =>
+      _authorized((token) => api.savePaperScore(token, paperId, score));
+
+  Future<void> openPaperReport(int courseId) async {
+    final token = _token;
+    final bytes = await _authorized(
+      (token) => api.paperReport(token, courseId),
+    );
+    await _noteFiles.open(
+      LessonNote(
+        id: courseId,
+        name: 'past-papers-report.pdf',
+        size: bytes.length,
+        mime: 'application/pdf',
+      ),
+      bytes,
+      () => _token != null && _token == token && member != null,
+    );
+  }
 
   Future<void> openPaperDocument(int paperId, PaperDocument file) async {
     final token = _token;

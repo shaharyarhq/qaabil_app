@@ -10,6 +10,7 @@ import '../models/catalogue_course.dart';
 import '../models/objective_resources.dart';
 import '../models/video_details.dart';
 import '../models/past_papers.dart';
+import '../models/video_submission.dart';
 
 class ApiException implements Exception {
   const ApiException(this.message, {this.status});
@@ -27,10 +28,11 @@ class MemberApi {
   final String baseUrl;
   bool get configured => baseUrl.isNotEmpty;
 
-  Uri _uri(String path, {bool public = false}) {
+  Uri _baseUri() {
     final uri = Uri.tryParse(baseUrl);
     if (uri == null ||
         !uri.hasAuthority ||
+        uri.host.isEmpty ||
         uri.userInfo.isNotEmpty ||
         uri.query.isNotEmpty ||
         uri.fragment.isNotEmpty) {
@@ -43,8 +45,13 @@ class MemberApi {
         'A secure member service connection is required.',
       );
     }
+    return uri;
+  }
+
+  Uri _uri(String path, {bool public = false}) {
+    final base = _baseUri();
     return Uri.parse(
-      '${baseUrl.replaceFirst(RegExp(r'/+$'), '')}/${public ? '' : 'member/'}$path',
+      '${base.toString().replaceFirst(RegExp(r'/+$'), '')}/${public ? '' : 'member/'}$path',
     );
   }
 
@@ -87,7 +94,17 @@ class MemberApi {
               : 'Your account cannot access this member feature.',
         404 => 'This resource is no longer available.',
         422 =>
-          path.startsWith('past-papers')
+          path == 'password/request'
+              ? 'Enter a valid email address.'
+              : path == 'password/reset'
+              ? ((data['errors'] as Map?)?.containsKey('token') == true
+                    ? 'This reset code is invalid or expired. Request a new one and try again.'
+                    : 'Check your email and password. Use at least 8 characters and confirm your password.')
+              : path == 'me'
+              ? 'Use 120 characters or fewer for each profile field.'
+              : path.endsWith('/score')
+              ? 'Check the marks allowed for this paper and try again.'
+              : path.startsWith('past-papers')
               ? 'Please shorten the paper search or choose another filter.'
               : public
               ? 'Please use a shorter search or choose another course filter.'
@@ -170,13 +187,64 @@ class MemberApi {
     }
   }
 
+  Future<void> requestPasswordReset(String email) async {
+    await _request('password/request', post: true, body: {'email': email});
+  }
+
+  Future<void> resetPassword(
+    String email,
+    String code,
+    String password,
+    String confirmation,
+  ) async {
+    await _request(
+      'password/reset',
+      post: true,
+      body: {
+        'email': email,
+        'token': code,
+        'password': password,
+        'password_confirmation': confirmation,
+      },
+    );
+  }
+
   Future<Member> me(String token) async {
-    final data = await _request('me', token: token);
+    return _parseProfile(await _request('me', token: token));
+  }
+
+  Future<Member> updateProfile(
+    String token,
+    String fullName,
+    String school,
+  ) async {
+    return _parseProfile(
+      await _request(
+        'me',
+        token: token,
+        post: true,
+        body: {'full_name': fullName.trim(), 'school': school.trim()},
+      ),
+    );
+  }
+
+  Member _parseProfile(Map<String, dynamic> data) {
     try {
       return Member.fromJson(data['user'] as Map<String, dynamic>);
     } catch (_) {
       throw const ApiException(
         'The member service returned an unexpected response.',
+      );
+    }
+  }
+
+  Future<SubmissionPage> submissions(String token, {int page = 1}) async {
+    final data = await _request('submissions?page=$page', token: token);
+    try {
+      return SubmissionPage.fromJson(data);
+    } catch (_) {
+      throw const ApiException(
+        'Could not read your video submissions. Please try again.',
       );
     }
   }
@@ -204,6 +272,37 @@ class MemberApi {
     } catch (_) {
       throw const ApiException('Could not read past papers. Please try again.');
     }
+  }
+
+  Future<int> savePaperScore(String token, int paperId, int score) async {
+    final response = await _request(
+      'past-papers/$paperId/score',
+      token: token,
+      post: true,
+      body: {'score': '$score'},
+    );
+    final saved = response['score'];
+    if (saved is! int) {
+      throw const ApiException(
+        'Could not confirm your saved marks. Please try again.',
+      );
+    }
+    return saved;
+  }
+
+  Future<Uint8List> paperReport(String token, int courseId) async {
+    final bytes = await _download(
+      token,
+      'past-papers/reports/$courseId',
+      failureMessage:
+          'Could not download the progress report. Please try again.',
+    );
+    if (bytes.length < 5 || String.fromCharCodes(bytes.take(5)) != '%PDF-') {
+      throw const ApiException(
+        'The progress report did not arrive as a PDF. Please try again.',
+      );
+    }
+    return bytes;
   }
 
   Future<Uint8List> paperDocument(
@@ -335,7 +434,12 @@ class MemberApi {
     return _download(token, 'learning-notes/$kind/$resourceId/$noteId');
   }
 
-  Future<Uint8List> _download(String token, String path) async {
+  Future<Uint8List> _download(
+    String token,
+    String path, {
+    String failureMessage =
+        'These notes could not be downloaded. Please try again.',
+  }) async {
     try {
       final response = await _client
           .get(
@@ -353,10 +457,7 @@ class MemberApi {
         );
       }
       if (response.statusCode != 200) {
-        throw ApiException(
-          'These notes could not be downloaded. Please try again.',
-          status: response.statusCode,
-        );
+        throw ApiException(failureMessage, status: response.statusCode);
       }
       if (response.bodyBytes.isEmpty ||
           response.bodyBytes.length > 20 * 1024 * 1024) {
@@ -368,7 +469,9 @@ class MemberApi {
     } on TimeoutException {
       throw const ApiException('The download timed out. Please try again.');
     } on http.ClientException {
-      throw const ApiException('Cannot download notes. Check your connection.');
+      throw const ApiException(
+        'Cannot download the file. Check your connection.',
+      );
     }
   }
 

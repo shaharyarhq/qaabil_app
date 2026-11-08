@@ -148,6 +148,193 @@ class _PastPapersScreenState extends State<PastPapersScreen> {
     _load(reset: true);
   }
 
+  Future<void> _openReport() async {
+    final courses = _courses;
+    final session = _session!;
+    final memberId = _memberId;
+    var selected = courses.any((course) => course.id == _course)
+        ? _course
+        : courses.length == 1
+        ? courses.single.id
+        : null;
+    var opening = false;
+    String? error;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, update) => PopScope(
+          canPop: !opening,
+          child: AlertDialog(
+            scrollable: true,
+            title: const Text('Past Papers progress report'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Choose a course to export your marks and grade breakdown.',
+                ),
+                const SizedBox(height: AppSpacing.md),
+                DropdownButtonFormField<int>(
+                  initialValue: selected,
+                  decoration: const InputDecoration(labelText: 'Course'),
+                  isExpanded: true,
+                  items: [
+                    for (final course in courses)
+                      DropdownMenuItem(
+                        value: course.id,
+                        child: Text(
+                          course.name,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: opening
+                      ? null
+                      : (value) => update(() {
+                          selected = value;
+                          error = null;
+                        }),
+                ),
+                if (error != null) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: opening ? null : () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: selected == null || opening
+                    ? null
+                    : () async {
+                        if (session.member?.id != memberId) {
+                          update(
+                            () => error = 'Sign in again to open your report.',
+                          );
+                          return;
+                        }
+                        update(() {
+                          opening = true;
+                          error = null;
+                        });
+                        try {
+                          await session.openPaperReport(selected!);
+                          if (context.mounted) Navigator.of(context).pop();
+                        } on ApiException catch (failure) {
+                          if (context.mounted) {
+                            update(() {
+                              opening = false;
+                              error = failure.message;
+                            });
+                          }
+                        }
+                      },
+                child: Text(opening ? 'Opening…' : 'Open PDF'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editScore(PastPaper paper) async {
+    final maximum = paper.totalMarks;
+    if (maximum == null) return;
+    final memberId = _memberId;
+    final session = _session!;
+    final form = GlobalKey<FormState>();
+    var input = paper.myScore?.toString() ?? '';
+    var saving = false;
+    String? error;
+
+    final saved = await showDialog<int>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, update) => PopScope(
+          canPop: !saving,
+          child: AlertDialog(
+            title: const Text('Your marks'),
+            content: Form(
+              key: form,
+              child: TextFormField(
+                initialValue: input,
+                autofocus: true,
+                enabled: !saving,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Marks out of $maximum',
+                  errorText: error,
+                  errorMaxLines: 3,
+                ),
+                onChanged: (value) {
+                  input = value;
+                  if (error != null) update(() => error = null);
+                },
+                validator: (value) {
+                  final score = int.tryParse(value?.trim() ?? '', radix: 10);
+                  if (score == null || score < 0 || score > maximum) {
+                    return 'Enter a whole number from 0 to $maximum.';
+                  }
+                  return null;
+                },
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: saving ? null : () => Navigator.of(context).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: saving
+                    ? null
+                    : () async {
+                        if (!form.currentState!.validate()) return;
+                        update(() {
+                          saving = true;
+                          error = null;
+                        });
+                        try {
+                          final score = await session.savePaperScore(
+                            paper.id,
+                            int.parse(input.trim(), radix: 10),
+                          );
+                          if (context.mounted) Navigator.of(context).pop(score);
+                        } on ApiException catch (failure) {
+                          if (context.mounted) {
+                            update(() {
+                              saving = false;
+                              error = failure.message;
+                            });
+                          }
+                        }
+                      },
+                child: Text(saving ? 'Saving…' : 'Save marks'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted || saved == null || session.member?.id != memberId) return;
+    final index = _papers.indexWhere((item) => item.id == paper.id);
+    if (index >= 0) {
+      setState(() => _papers[index] = _papers[index].withScore(saved));
+    }
+  }
+
   Future<void> _open(PastPaper paper, PaperDocument file) async {
     final key = '${paper.id}/${file.kind}';
     final memberId = _memberId;
@@ -238,6 +425,14 @@ class _PastPapersScreenState extends State<PastPapersScreen> {
                     ),
                   ),
                 ] else ...[
+                  if (_courses.isNotEmpty) ...[
+                    OutlinedButton.icon(
+                      onPressed: _openReport,
+                      icon: const Icon(Icons.picture_as_pdf_outlined),
+                      label: const Text('Progress report'),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
                   SearchField(
                     controller: _search,
                     hint: 'Search paper name…',
@@ -414,6 +609,7 @@ class _PastPapersScreenState extends State<PastPapersScreen> {
                         paper: paper,
                         opening: _opening,
                         onOpen: (file) => _open(paper, file),
+                        onEditScore: () => _editScore(paper),
                       ),
                     ),
                   if (_loading)
@@ -441,10 +637,12 @@ class _PaperCard extends StatelessWidget {
     required this.paper,
     required this.opening,
     required this.onOpen,
+    required this.onEditScore,
   });
   final PastPaper paper;
   final String? opening;
   final ValueChanged<PaperDocument> onOpen;
+  final VoidCallback onEditScore;
   @override
   Widget build(BuildContext context) {
     final (accent, tint) = AppColors
@@ -495,6 +693,18 @@ class _PaperCard extends StatelessWidget {
             Text(paper.details, style: AppTextStyles.body),
           ],
           const SizedBox(height: AppSpacing.lg),
+          if (paper.totalMarks != null) ...[
+            OutlinedButton.icon(
+              onPressed: onEditScore,
+              icon: const Icon(Icons.edit_note_rounded),
+              label: Text(
+                paper.myScore == null
+                    ? 'Add marks'
+                    : 'Your marks: ${paper.myScore} / ${paper.totalMarks}',
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
           if (paper.documents.isEmpty)
             const Text(
               'Documents are not available for this paper yet.',
