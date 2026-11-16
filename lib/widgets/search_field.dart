@@ -30,7 +30,9 @@ class SearchField extends StatelessWidget {
       controller: controller,
       onChanged: onChanged,
       textInputAction: TextInputAction.search,
-      style: AppTextStyles.body.copyWith(color: AppColors.textPrimary),
+      style: AppTextStyles.body.copyWith(
+        color: AppPalette.of(context).textPrimary,
+      ),
       decoration: InputDecoration(
         hintText: hint,
         prefixIcon: const Icon(Icons.search, size: 22),
@@ -39,11 +41,17 @@ class SearchField extends StatelessWidget {
             : IconButton(
                 tooltip: 'Clear search',
                 icon: const Icon(Icons.close, size: 20),
-                color: AppColors.textMuted,
+                color: AppPalette.of(context).textMuted,
                 onPressed: onClear,
               ),
-        enabledBorder: AppTheme.inputBorder(AppColors.border, radius: radius),
-        focusedBorder: AppTheme.inputBorder(AppColors.navy, radius: radius),
+        enabledBorder: AppTheme.inputBorder(
+          AppPalette.of(context).border,
+          radius: radius,
+        ),
+        focusedBorder: AppTheme.inputBorder(
+          AppPalette.of(context).accent,
+          radius: radius,
+        ),
       ),
     );
   }

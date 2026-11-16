@@ -100,6 +100,8 @@ class MemberApi {
               ? ((data['errors'] as Map?)?.containsKey('token') == true
                     ? 'This reset code is invalid or expired. Request a new one and try again.'
                     : 'Check your email and password. Use at least 8 characters and confirm your password.')
+              : path == 'submissions' || path.startsWith('submissions/')
+              ? _submissionValidationMessage(data)
               : path == 'me'
               ? 'Use 120 characters or fewer for each profile field.'
               : path.endsWith('/score')
@@ -238,6 +240,116 @@ class MemberApi {
     }
   }
 
+  Future<
+    ({
+      Map<String, String> languages,
+      Map<String, String> focuses,
+      int? uploadMaxMb,
+    })
+  >
+  submissionOptions(String token) async {
+    final data = await _request('submissions/options', token: token);
+    try {
+      return (
+        languages: Map<String, String>.from(data['languages'] as Map),
+        focuses: Map<String, String>.from(data['focuses'] as Map),
+        uploadMaxMb: data['upload_max_mb'] as int?,
+      );
+    } catch (_) {
+      throw const ApiException('Could not read the video submission options.');
+    }
+  }
+
+  Future<bool> submitVideo(String token, Map<String, String> fields) async {
+    final data = await _request(
+      'submissions',
+      token: token,
+      post: true,
+      body: fields,
+    );
+    return data['created'] == true;
+  }
+
+  Future<bool> uploadVideo(
+    String token,
+    Map<String, String> fields, {
+    required String filename,
+    required int size,
+    required Stream<List<int>> stream,
+    required void Function(double) onProgress,
+  }) async {
+    var sent = 0;
+    final tracked = stream.map((chunk) {
+      sent += chunk.length;
+      onProgress((sent / size).clamp(0.0, 1.0));
+      return chunk;
+    });
+    final request = http.MultipartRequest('POST', _uri('submissions/upload'))
+      ..headers.addAll({
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      })
+      ..fields.addAll(fields)
+      ..files.add(
+        http.MultipartFile('file', tracked, size, filename: filename),
+      );
+    final client = http.Client();
+    try {
+      final response = await client
+          .send(request)
+          .then(http.Response.fromStream)
+          .timeout(const Duration(minutes: 4));
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return response.statusCode == 201;
+      }
+      final message = switch (response.statusCode) {
+        401 => 'Your session has expired. Please log in again.',
+        403 => 'Your account cannot submit videos.',
+        404 => 'This learning objective is no longer available.',
+        409 => 'This file is already being submitted. Try again shortly.',
+        413 => 'This file is too large for the server.',
+        422 => 'Check the form and choose a supported video file.',
+        429 => 'Too many submissions. Please wait a minute and try again.',
+        503 => 'Video file uploads are currently unavailable.',
+        _ => 'The video could not be uploaded. Please try again.',
+      };
+      throw ApiException(message, status: response.statusCode);
+    } on TimeoutException {
+      throw const ApiException('The upload timed out. Please try again.');
+    } on http.ClientException {
+      throw const ApiException(
+        'The upload connection failed. Please try again.',
+      );
+    } finally {
+      client.close();
+    }
+  }
+
+  String _submissionValidationMessage(Map<String, dynamic> data) {
+    final urlErrors = (data['errors'] as Map?)?['video_url'];
+    const duplicate = 'You already submitted this video for this objective.';
+    if (urlErrors is List && urlErrors.contains(duplicate)) return duplicate;
+    if (urlErrors is List) return 'Enter a valid HTTPS YouTube link.';
+    return 'Check the required fields and try again.';
+  }
+
+  Future<VideoSubmission> submission(String token, int id) async {
+    final data = await _request('submissions/$id', token: token);
+    try {
+      return VideoSubmission.fromJson(data);
+    } catch (_) {
+      throw const ApiException('Could not read this video submission.');
+    }
+  }
+
+  Future<void> updateSubmission(
+    String token,
+    int id,
+    Map<String, String> fields,
+  ) async {
+    await _request('submissions/$id', token: token, post: true, body: fields);
+  }
+
   Future<SubmissionPage> submissions(String token, {int page = 1}) async {
     final data = await _request('submissions?page=$page', token: token);
     try {
@@ -290,10 +402,16 @@ class MemberApi {
     return saved;
   }
 
-  Future<Uint8List> paperReport(String token, int courseId) async {
+  Future<Uint8List> paperReport(String token, int courseId) =>
+      _progressReport(token, 'past-papers/reports/$courseId');
+
+  Future<Uint8List> courseReport(String token, int courseId) =>
+      _progressReport(token, 'courses/$courseId/report');
+
+  Future<Uint8List> _progressReport(String token, String path) async {
     final bytes = await _download(
       token,
-      'past-papers/reports/$courseId',
+      path,
       failureMessage:
           'Could not download the progress report. Please try again.',
     );
@@ -320,8 +438,18 @@ class MemberApi {
     return _download(token, 'past-papers/$paperId/files/${file.kind}');
   }
 
-  Future<MemberCoursePage> courses(String token, {int page = 1}) async {
-    final data = await _request('courses?page=$page', token: token);
+  Future<MemberCoursePage> courses(
+    String token, {
+    int page = 1,
+    String search = '',
+  }) async {
+    final query = Uri(
+      queryParameters: {
+        if (search.trim().isNotEmpty) 'search': search.trim(),
+        'page': '$page',
+      },
+    ).query;
+    final data = await _request('courses?$query', token: token);
     try {
       final page = MemberCoursePage.fromJson(data);
       if (page.courses.any((course) => course.progress == null)) {
@@ -358,6 +486,15 @@ class MemberApi {
         'The learning service returned an unexpected response.',
       );
     }
+  }
+
+  Uri courseWebsiteUrl(int id) => _baseUri().replace(path: '/courses/$id');
+
+  Uri quizUrl(String path) {
+    if (!RegExp(r'^/member/quiz/[0-9]+/take$').hasMatch(path)) {
+      throw const ApiException('This quiz link is unavailable.');
+    }
+    return _baseUri().replace(path: path);
   }
 
   Future<VideoPlayback> video(String token, int videoId) async {

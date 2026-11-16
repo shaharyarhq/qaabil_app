@@ -4,9 +4,10 @@ import 'package:qaabil_mobile/widgets/primary_button.dart';
 import '../auth/member_session.dart';
 import '../models/video_details.dart';
 import '../services/member_api.dart';
+import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
 import '../theme/app_text_styles.dart';
-import 'app_card.dart';
+import 'video_information.dart';
 
 /// Reviews use the website's records and the signed-in member's ownership.
 class VideoReviews extends StatefulWidget {
@@ -156,7 +157,7 @@ class _VideoReviewsState extends State<VideoReviews> {
 
   Widget _card(VideoReview review) => Padding(
     padding: const EdgeInsets.only(bottom: AppSpacing.md),
-    child: AppCard(
+    child: VideoPanel(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -164,7 +165,7 @@ class _VideoReviewsState extends State<VideoReviews> {
             '${review.author}${review.isMine ? ' · You' : ''}',
             style: AppTextStyles.label,
           ),
-          Text('${review.rating}/5 stars', style: AppTextStyles.body),
+          _reviewStars(context, review.rating),
           if (review.createdAt != null)
             Text(
               review.createdAt!.toLocal().toIso8601String().split('T').first,
@@ -196,7 +197,20 @@ class _VideoReviewsState extends State<VideoReviews> {
       children: [
         Row(
           children: [
-            const Expanded(child: Text('Reviews', style: AppTextStyles.title)),
+            Container(width: 16, height: 3, color: AppColors.amberDark),
+            const SizedBox(width: 8),
+            const Text('Reviews', style: AppTextStyles.title),
+            if (summary != null && summary.total > 0)
+              Flexible(
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Text(
+                    '${summary.total} ${summary.total == 1 ? 'review' : 'reviews'}',
+                    style: AppTextStyles.caption,
+                  ),
+                ),
+              ),
+            const Spacer(),
             IconButton(
               tooltip: 'Refresh reviews',
               onPressed: _loading || _saving ? null : () => _load(reset: true),
@@ -221,49 +235,20 @@ class _VideoReviewsState extends State<VideoReviews> {
             ),
           ),
         if (summary != null) ...[
-          if (summary.total > 0)
-            AppCard(
+          if (summary.total > 0) _RatingSummary(summary: summary),
+          const SizedBox(height: AppSpacing.md),
+          if (summary.ownReview == null)
+            VideoPanel(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    '${summary.average.toStringAsFixed(1)} / 5 · ${summary.total} reviews',
-                    style: AppTextStyles.title,
+                    'LEAVE A REVIEW',
+                    style: AppTextStyles.eyebrow.copyWith(
+                      color: AppPalette.of(context).textMuted,
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  for (var star = 5; star >= 1; star--)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 3),
-                      child: Row(
-                        children: [
-                          SizedBox(width: 35, child: Text('$star ★')),
-                          Expanded(
-                            child: LinearProgressIndicator(
-                              value: summary.counts[star - 1] / summary.total,
-                            ),
-                          ),
-                          SizedBox(
-                            width: 30,
-                            child: Text(
-                              '${summary.counts[star - 1]}',
-                              textAlign: TextAlign.right,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          const SizedBox(height: AppSpacing.md),
-          if (summary.ownReview == null)
-            AppCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text('Leave a review', style: AppTextStyles.title),
-                  const SizedBox(height: AppSpacing.sm),
-                  const Text('Choose a rating from 1 to 5 stars.'),
                   Wrap(
                     children: [
                       for (var n = 1; n <= 5; n++)
@@ -275,7 +260,7 @@ class _VideoReviewsState extends State<VideoReviews> {
                           icon: Icon(
                             n <= _rating ? Icons.star : Icons.star_border,
                           ),
-                          color: Theme.of(context).colorScheme.primary,
+                          color: AppPalette.of(context).amberText,
                         ),
                     ],
                   ),
@@ -318,4 +303,89 @@ class _VideoReviewsState extends State<VideoReviews> {
       ],
     );
   }
+}
+
+Widget _reviewStars(BuildContext context, int rating) => Semantics(
+  label: '$rating out of 5 stars',
+  child: Wrap(
+    spacing: 2,
+    children: [
+      for (var star = 1; star <= 5; star++)
+        Icon(
+          Icons.star_rounded,
+          size: 15,
+          color: star <= rating
+              ? AppColors.amberDark
+              : AppPalette.of(context).border,
+        ),
+    ],
+  ),
+);
+
+class _RatingSummary extends StatelessWidget {
+  const _RatingSummary({required this.summary});
+
+  final VideoReviewPage summary;
+
+  @override
+  Widget build(BuildContext context) => VideoPanel(
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final average = Column(
+          mainAxisSize: MainAxisSize.min,
+          spacing: 4,
+          children: [
+            Text(
+              summary.average.toStringAsFixed(1),
+              style: const TextStyle(
+                fontFamily: AppTextStyles.serif,
+                fontSize: 52,
+                height: 1,
+              ),
+            ),
+            _reviewStars(context, summary.average.round()),
+            const Text('out of 5', style: AppTextStyles.caption),
+          ],
+        );
+        final bars = Column(
+          spacing: 6,
+          children: [
+            for (var star = 5; star >= 1; star--)
+              Row(
+                spacing: 8,
+                children: [
+                  Text('$star', style: AppTextStyles.caption),
+                  const Icon(
+                    Icons.star_rounded,
+                    size: 12,
+                    color: AppColors.amberDark,
+                  ),
+                  Expanded(
+                    child: LinearProgressIndicator(
+                      value: summary.counts[star - 1] / summary.total,
+                      borderRadius: BorderRadius.circular(8),
+                      color: AppColors.amberDark,
+                      backgroundColor: AppPalette.of(context).navyTint,
+                    ),
+                  ),
+                  Text(
+                    '${summary.counts[star - 1]}',
+                    style: AppTextStyles.caption,
+                  ),
+                ],
+              ),
+          ],
+        );
+        return constraints.maxWidth < 460
+            ? Column(spacing: 16, children: [average, bars])
+            : Row(
+                spacing: 24,
+                children: [
+                  average,
+                  Expanded(child: bars),
+                ],
+              );
+      },
+    ),
+  );
 }

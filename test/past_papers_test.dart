@@ -172,6 +172,30 @@ void main() {
     },
   );
 
+  testWidgets('Paper groups can collapse and switch from year to sitting', (
+    tester,
+  ) async {
+    await _open(tester, (_) async => _json(_page()));
+    await _tap(tester, 'Year: 2025');
+    expect(find.text('Paper 12'), findsNothing);
+    await _tap(tester, 'Year: 2025');
+    expect(find.text('Paper 12'), findsOneWidget);
+    final grouping = find
+        .ancestor(of: find.text('Group by'), matching: find.byType(Row))
+        .first;
+    final selectedYear = find.descendant(
+      of: grouping,
+      matching: find.text('Year'),
+    );
+    await tester.ensureVisible(grouping);
+    await tester.tap(selectedYear);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Sitting').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Sitting: May/June'), findsOneWidget);
+    expect(find.text('Year: 2025'), findsNothing);
+  });
+
   testWidgets(
     'Course year sitting and debounced paper name are sent together; clear resets them',
     (tester) async {
@@ -180,15 +204,15 @@ void main() {
         queries.add(request.url.queryParameters);
         return _json(_page());
       });
-      await tester.tap(find.byType(DropdownButtonFormField<int>).first);
+      await tester.tap(find.byTooltip('Course'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Accounting').last);
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(DropdownButtonFormField<int>).last);
+      await tester.tap(find.byTooltip('Year'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('2024').last);
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.tap(find.byTooltip('Sitting'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('October/November').last);
       await tester.pumpAndSettle();
@@ -202,7 +226,7 @@ void main() {
         'search': 'Paper 2',
         'page': '1',
       });
-      await _tap(tester, 'Clear filters');
+      await _tap(tester, 'Reset');
       expect(queries.last, {'page': '1'});
       expect(tester.takeException(), isNull);
     },
@@ -367,7 +391,7 @@ void main() {
         );
       }, files: files);
 
-      await _tap(tester, 'Progress report');
+      await _tap(tester, 'Download my Past Paper Report');
       await tester.tap(find.text('Open PDF'));
       await tester.pumpAndSettle();
       expect(

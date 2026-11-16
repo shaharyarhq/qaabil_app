@@ -11,16 +11,25 @@ import 'app_tokens.dart';
 class AppTheme {
   AppTheme._();
 
-  static ThemeData get light {
+  static final light = _build(const AppPalette(false));
+  static final dark = _build(const AppPalette(true));
+
+  static ThemeData _build(AppPalette palette) {
     final colorScheme = ColorScheme.fromSeed(
       seedColor: AppColors.navy,
-      primary: AppColors.navy,
-      onPrimary: Colors.white,
+      brightness: palette.dark ? Brightness.dark : Brightness.light,
+      primary: palette.accent,
+      onPrimary: palette.dark ? AppColors.navyDark : Colors.white,
       secondary: AppColors.amber,
       onSecondary: AppColors.navy,
-      surface: AppColors.surface,
-      onSurface: AppColors.textPrimary,
-      error: AppColors.error,
+      primaryContainer: palette.navyTint,
+      onPrimaryContainer: palette.accent,
+      surface: palette.surface,
+      onSurface: palette.textPrimary,
+      onSurfaceVariant: palette.textSecondary,
+      outline: palette.border,
+      outlineVariant: palette.border,
+      error: palette.error,
     );
 
     final buttonShape = RoundedRectangleBorder(borderRadius: AppRadius.button);
@@ -29,16 +38,16 @@ class AppTheme {
       useMaterial3: true,
       colorScheme: colorScheme,
       fontFamily: AppTextStyles.sans,
-      scaffoldBackgroundColor: AppColors.background,
+      scaffoldBackgroundColor: palette.background,
 
-      appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.textPrimary,
+      appBarTheme: AppBarTheme(
+        backgroundColor: palette.surface,
+        foregroundColor: palette.textPrimary,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
         // A thin bottom line instead of a shadow, like the website's nav bar.
-        shape: Border(bottom: BorderSide(color: AppColors.border, width: 2)),
+        shape: Border(bottom: BorderSide(color: palette.border, width: 2)),
       ),
 
       filledButtonTheme: FilledButtonThemeData(
@@ -54,12 +63,12 @@ class AppTheme {
               // Darker navy while pressed, instead of the default ripple tint.
               foregroundColor: WidgetStateProperty.resolveWith(
                 (states) => states.contains(WidgetState.disabled)
-                    ? AppColors.textSecondary
+                    ? palette.textSecondary
                     : Colors.white,
               ),
               backgroundColor: WidgetStateProperty.resolveWith(
                 (states) => states.contains(WidgetState.disabled)
-                    ? AppColors.border
+                    ? palette.border
                     : states.contains(WidgetState.pressed)
                     ? AppColors.navyDark
                     : AppColors.navy,
@@ -69,7 +78,7 @@ class AppTheme {
 
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.navy,
+          foregroundColor: palette.accent,
           shape: buttonShape,
           textStyle: AppTextStyles.button.copyWith(fontSize: 14),
         ),
@@ -77,28 +86,28 @@ class AppTheme {
 
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.surface,
+        fillColor: palette.surface,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.lg,
           vertical: AppSpacing.lg,
         ),
-        hintStyle: AppTextStyles.body.copyWith(color: AppColors.textMuted),
-        prefixIconColor: AppColors.textMuted,
-        enabledBorder: inputBorder(AppColors.border),
-        focusedBorder: inputBorder(AppColors.navy),
-        errorBorder: inputBorder(AppColors.error),
-        focusedErrorBorder: inputBorder(AppColors.error),
+        hintStyle: AppTextStyles.body.copyWith(color: palette.textMuted),
+        prefixIconColor: palette.textMuted,
+        enabledBorder: inputBorder(palette.border),
+        focusedBorder: inputBorder(palette.accent),
+        errorBorder: inputBorder(palette.error),
+        focusedErrorBorder: inputBorder(palette.error),
       ),
 
       // Menus that pop up, like the "Newest first" sort menu.
       popupMenuTheme: PopupMenuThemeData(
-        color: AppColors.surface,
+        color: palette.surface,
         surfaceTintColor: Colors.transparent,
         elevation: 8,
         shadowColor: AppColors.navy.withValues(alpha: 0.25),
         shape: RoundedRectangleBorder(
           borderRadius: AppRadius.controlRadius,
-          side: const BorderSide(color: AppColors.border),
+          side: BorderSide(color: palette.border),
         ),
         textStyle: AppTextStyles.label,
       ),
@@ -106,14 +115,14 @@ class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(64, 52),
-          foregroundColor: AppColors.navy,
-          side: const BorderSide(color: AppColors.border, width: 2),
+          foregroundColor: palette.accent,
+          side: BorderSide(color: palette.border, width: 2),
           shape: buttonShape,
           textStyle: AppTextStyles.button,
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: AppColors.surface,
+        backgroundColor: palette.surface,
         elevation: 0,
         height: 80,
         indicatorColor: Colors.transparent,
@@ -123,32 +132,29 @@ class AppTheme {
             fontSize: 11,
             fontWeight: FontWeight.w800,
             color: states.contains(WidgetState.selected)
-                ? AppColors.navy
-                : AppColors.textMuted,
+                ? palette.accent
+                : palette.textMuted,
           ),
         ),
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: AppColors.surface,
-        selectedColor: AppColors.navyTint,
-        side: const BorderSide(color: AppColors.border, width: 2),
+        backgroundColor: palette.surface,
+        selectedColor: palette.navyTint,
+        side: BorderSide(color: palette.border, width: 2),
         shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
         labelStyle: AppTextStyles.label,
       ),
-      dividerTheme: const DividerThemeData(
-        color: AppColors.border,
-        thickness: 2,
-      ),
-      expansionTileTheme: const ExpansionTileThemeData(
-        iconColor: AppColors.navy,
-        collapsedIconColor: AppColors.textMuted,
-        shape: Border(),
-        collapsedShape: Border(),
+      dividerTheme: DividerThemeData(color: palette.border, thickness: 2),
+      expansionTileTheme: ExpansionTileThemeData(
+        iconColor: palette.accent,
+        collapsedIconColor: palette.textMuted,
+        shape: const Border(),
+        collapsedShape: const Border(),
       ),
       textSelectionTheme: TextSelectionThemeData(
-        cursorColor: AppColors.navy,
+        cursorColor: palette.accent,
         selectionColor: AppColors.navy.withValues(alpha: 0.15),
-        selectionHandleColor: AppColors.navy,
+        selectionHandleColor: palette.accent,
       ),
     );
   }

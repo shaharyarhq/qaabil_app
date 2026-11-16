@@ -7,7 +7,6 @@ import 'package:http/testing.dart';
 import 'package:qaabil_mobile/auth/member_session.dart';
 import 'package:qaabil_mobile/main.dart';
 import 'package:qaabil_mobile/services/member_api.dart';
-import 'package:qaabil_mobile/widgets/filter_pill.dart';
 
 import 'support/public_catalogue.dart';
 
@@ -23,6 +22,7 @@ class _Store implements TokenStore {
 Future<void> openCourses(
   WidgetTester tester, {
   Future<http.Response> Function(http.Request)? respond,
+  Future<void> Function(ThemeMode)? saveThemeMode,
 }) async {
   tester.view.physicalSize = const Size(390, 1200);
   tester.view.devicePixelRatio = 1;
@@ -35,7 +35,9 @@ Future<void> openCourses(
     }),
   );
   final session = MemberSession(api: api, store: _Store());
-  await tester.pumpWidget(QaabilApp(session: session));
+  await tester.pumpWidget(
+    QaabilApp(session: session, saveThemeMode: saveThemeMode),
+  );
   await tester.pumpAndSettle();
   addTearDown(() async {
     await tester.pumpWidget(const SizedBox());
@@ -51,6 +53,33 @@ Future<void> search(WidgetTester tester, String value) async {
 }
 
 void main() {
+  testWidgets('Appearance from Profile changes the whole app', (tester) async {
+    final saved = <ThemeMode>[];
+    await openCourses(tester, saveThemeMode: (mode) async => saved.add(mode));
+
+    await tester.tap(find.text('Profile'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Appearance'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Dark'));
+    await tester.pumpAndSettle();
+    expect(saved, [ThemeMode.dark]);
+
+    await tester.tap(find.text('Courses'));
+    await tester.pumpAndSettle();
+    final course = find.text('Backend Accounting');
+    final context = tester.element(course);
+    expect(Theme.of(context).brightness, Brightness.dark);
+    expect(tester.widget<Text>(course).style!.color, const Color(0xFFF1F5FB));
+
+    await tester.tap(find.widgetWithText(TextButton, 'Login'));
+    await tester.pumpAndSettle();
+    expect(
+      Theme.of(tester.element(find.text('Email address'))).brightness,
+      Brightness.dark,
+    );
+  });
+
   testWidgets(
     'Guests see backend courses without credentials or mock courses',
     (tester) async {
@@ -59,7 +88,7 @@ void main() {
       expect(find.text('Biology (0610)'), findsNothing);
       await tester.tap(find.widgetWithText(TextButton, 'Login'));
       await tester.pumpAndSettle();
-      expect(find.text('Email'), findsOneWidget);
+      expect(find.text('Email address'), findsOneWidget);
       await tester.tap(find.byType(BackButton));
       await tester.pumpAndSettle();
       expect(find.text('Backend Accounting'), findsOneWidget);
@@ -79,7 +108,9 @@ void main() {
     );
     await search(tester, 'Accounting & more');
     expect(requests.last.queryParameters['search'], 'Accounting & more');
-    await tester.tap(find.widgetWithText(FilterPill, 'Backend Qualification'));
+    await tester.tap(find.text('All qualifications'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Backend Qualification (2)'));
     await tester.pumpAndSettle();
     expect(requests.last.queryParameters['qualification'], '9');
     await tester.tap(find.text('Newest first'));
@@ -87,6 +118,14 @@ void main() {
     await tester.tap(find.text('Oldest first').last);
     await tester.pumpAndSettle();
     expect(requests.last.queryParameters['sort'], 'oldest');
+    await tester.tap(find.byTooltip('Remove qualification filter'));
+    await tester.pumpAndSettle();
+    expect(requests.last.queryParameters['qualification'], isNull);
+    expect(requests.last.queryParameters['sort'], 'oldest');
+    await tester.tap(find.text('Clear all'));
+    await tester.pumpAndSettle();
+    expect(requests.last.queryParameters['search'], isNull);
+    expect(requests.last.queryParameters['sort'], 'newest');
   });
 
   testWidgets('Empty search can be cleared and tabs preserve search', (
@@ -185,14 +224,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Course content'), findsOneWidget);
     expect(find.text('Backend Section'), findsOneWidget);
-    await tester.tap(find.text('Backend Chapter'));
-    await tester.pumpAndSettle();
     expect(find.text('Backend Objective'), findsOneWidget);
     expect(find.text('Not started'), findsNothing);
     expect(find.text('Take Quiz'), findsNothing);
-    await tester.tap(find.text('Login for videos & notes'));
+    final login = find.text('Login for videos & notes');
+    await tester.ensureVisible(login);
     await tester.pumpAndSettle();
-    expect(find.text('Email'), findsOneWidget);
+    await tester.tap(login);
+    await tester.pumpAndSettle();
+    expect(find.text('Email address'), findsOneWidget);
     await tester.tap(find.byType(BackButton));
     await tester.pumpAndSettle();
     expect(find.text('Backend Objective'), findsOneWidget);

@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+
+import '../widgets/searchable_select.dart';
 
 import '../auth/member_session.dart';
 import '../models/past_papers.dart';
@@ -20,9 +23,11 @@ class PastPapersScreen extends StatefulWidget {
     super.key,
     required this.onBrowseCourses,
     this.active = true,
+    this.initialCourseId,
   });
   final VoidCallback onBrowseCourses;
   final bool active;
+  final int? initialCourseId;
   @override
   State<PastPapersScreen> createState() => _PastPapersScreenState();
 }
@@ -40,6 +45,7 @@ class _PastPapersScreenState extends State<PastPapersScreen> {
   bool _loading = false, _loaded = false;
   Timer? _debounce;
   String? _opening;
+  _PaperGrouping _grouping = _PaperGrouping.year;
 
   @override
   void didChangeDependencies() {
@@ -53,7 +59,7 @@ class _PastPapersScreenState extends State<PastPapersScreen> {
       _courses = [];
       _years = [];
       _sittings = [];
-      _course = null;
+      _course = widget.initialCourseId;
       _year = null;
       _sitting = null;
       _search.clear();
@@ -64,6 +70,7 @@ class _PastPapersScreenState extends State<PastPapersScreen> {
       _loading = false;
       _loaded = false;
       _opening = null;
+      _grouping = _PaperGrouping.year;
     }
     if (widget.active && _memberId != null && !_loaded) _load(reset: true);
   }
@@ -177,20 +184,13 @@ class _PastPapersScreenState extends State<PastPapersScreen> {
                   'Choose a course to export your marks and grade breakdown.',
                 ),
                 const SizedBox(height: AppSpacing.md),
-                DropdownButtonFormField<int>(
-                  initialValue: selected,
+                SearchableSelectField<int>(
+                  label: 'Course',
+                  value: selected,
                   decoration: const InputDecoration(labelText: 'Course'),
-                  isExpanded: true,
-                  items: [
-                    for (final course in courses)
-                      DropdownMenuItem(
-                        value: course.id,
-                        child: Text(
-                          course.name,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
+                  options: {
+                    for (final course in courses) course.id: course.name,
+                  },
                   onChanged: opening
                       ? null
                       : (value) => update(() {
@@ -366,36 +366,42 @@ class _PastPapersScreenState extends State<PastPapersScreen> {
         _course != null ||
         _year != null ||
         _sitting != null;
+    final palette = AppPalette.of(context);
     return Scaffold(
       appBar: const QaabilAppBar(),
       body: Align(
         alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: AppSpacing.contentMaxWidth,
-          ),
+        child: SizedBox(
+          width: double.infinity,
           child: RefreshIndicator(
             onRefresh: () => _load(reset: true),
             child: ListView(
               key: const PageStorageKey('past-papers'),
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(AppSpacing.screen),
-              children: [
-                const SectionHeader(
-                  eyebrow: 'EXAM PRACTICE',
-                  title: 'Past Papers',
-                  accent: '',
-                  subtitle: 'Find your paper. Get ready for your next exam.',
+              padding: EdgeInsets.symmetric(
+                horizontal: math.max(
+                  20,
+                  (MediaQuery.sizeOf(context).width - 1200) / 2,
                 ),
-                const SizedBox(height: AppSpacing.xl),
+                vertical: 24,
+              ),
+              children: [
+                if (member == null)
+                  const SectionHeader(
+                    eyebrow: 'EXAM PRACTICE',
+                    title: 'Past Papers',
+                    accent: '',
+                    subtitle: 'Find your paper. Get ready for your next exam.',
+                  ),
+                if (member == null) const SizedBox(height: AppSpacing.xl),
                 if (member == null) ...[
                   AppCard(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.assignment_rounded,
-                          color: AppColors.violet,
+                          color: AppPalette.of(context).violet,
                           size: 48,
                         ),
                         const SizedBox(height: AppSpacing.lg),
@@ -425,138 +431,223 @@ class _PastPapersScreenState extends State<PastPapersScreen> {
                     ),
                   ),
                 ] else ...[
-                  if (_courses.isNotEmpty) ...[
-                    OutlinedButton.icon(
-                      onPressed: _openReport,
-                      icon: const Icon(Icons.picture_as_pdf_outlined),
-                      label: const Text('Progress report'),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                  ],
-                  SearchField(
-                    controller: _search,
-                    hint: 'Search paper name…',
-                    onChanged: _searchChanged,
-                    onClear: () {
-                      _search.clear();
-                      _searchChanged('');
-                    },
+                  const Text(
+                    'Past Papers  ›  List',
+                    style: AppTextStyles.caption,
                   ),
-                  const SizedBox(height: AppSpacing.md),
-                  DropdownButtonFormField<int>(
-                    key: ValueKey('paper-course-$_course-${_courses.length}'),
-                    initialValue: _courses.any((c) => c.id == _course)
-                        ? _course
-                        : null,
-                    hint: const Text('All courses'),
-                    decoration: const InputDecoration(labelText: 'Course'),
-                    isExpanded: true,
-                    items: [
-                      const DropdownMenuItem<int>(
-                        value: null,
-                        child: Text('All courses'),
-                      ),
-                      for (final course in _courses)
-                        DropdownMenuItem(
-                          value: course.id,
-                          child: Text(
-                            course.name,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                    ],
-                    onChanged: (value) {
-                      _course = value;
-                      _load(reset: true);
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<int>(
-                          key: ValueKey('paper-year-$_year-${_years.length}'),
-                          initialValue: _years.contains(_year) ? _year : null,
-                          hint: const Text('All years'),
-                          decoration: const InputDecoration(labelText: 'Year'),
-                          isExpanded: true,
-                          items: [
-                            const DropdownMenuItem<int>(
-                              value: null,
-                              child: Text('All years'),
-                            ),
-                            for (final year in _years)
-                              DropdownMenuItem(
-                                value: year,
-                                child: Text('$year'),
-                              ),
-                          ],
-                          onChanged: (value) {
-                            _year = value;
-                            _load(reset: true);
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.md),
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          key: ValueKey(
-                            'paper-sitting-$_sitting-${_sittings.length}',
-                          ),
-                          initialValue: _sittings.contains(_sitting)
-                              ? _sitting
-                              : null,
-                          hint: const Text(
-                            'All sittings',
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          decoration: const InputDecoration(
-                            labelText: 'Sitting',
-                          ),
-                          isExpanded: true,
-                          items: [
-                            const DropdownMenuItem<String>(
-                              value: null,
-                              child: Text(
-                                'All sittings',
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            for (final sitting in _sittings)
-                              DropdownMenuItem(
-                                value: sitting,
-                                child: Text(
-                                  sitting,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                          ],
-                          onChanged: (value) {
-                            _sitting = value;
-                            _load(reset: true);
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
+                  const SizedBox(height: 8),
                   Wrap(
                     alignment: WrapAlignment.spaceBetween,
                     crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 16,
+                    runSpacing: 8,
                     children: [
-                      Text(
-                        _loading && _papers.isEmpty
-                            ? 'Finding papers…'
-                            : '$_total ${_total == 1 ? 'paper' : 'papers'} found',
-                        style: AppTextStyles.caption,
-                      ),
-                      if (filtered)
-                        TextButton(
-                          onPressed: _resetFilters,
-                          child: const Text('Clear filters'),
+                      const Text('Past Papers', style: AppTextStyles.heading),
+                      if (_courses.isNotEmpty)
+                        FilledButton.icon(
+                          onPressed: _openReport,
+                          style: _downloadStyle(context, 'question_paper'),
+                          icon: const Icon(Icons.download_outlined, size: 18),
+                          label: const Text('Download my Past Paper Report'),
                         ),
                     ],
+                  ),
+                  const SizedBox(height: 24),
+                  Material(
+                    color: palette.surface,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: palette.border),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            spacing: 12,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Filters',
+                                    style: AppTextStyles.title,
+                                  ),
+                                  TextButton(
+                                    onPressed: filtered ? _resetFilters : null,
+                                    child: const Text('Reset'),
+                                  ),
+                                ],
+                              ),
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final columns = constraints.maxWidth >= 700
+                                      ? 3
+                                      : constraints.maxWidth >= 500
+                                      ? 2
+                                      : 1;
+                                  final width =
+                                      (constraints.maxWidth -
+                                          (columns - 1) * 12) /
+                                      columns;
+                                  return Wrap(
+                                    spacing: 12,
+                                    runSpacing: 12,
+                                    children: [
+                                      SizedBox(
+                                        width: width,
+                                        child: _PaperFilter(
+                                          label: 'Paper Name',
+                                          child: SearchField(
+                                            controller: _search,
+                                            hint: 'Search paper name…',
+                                            onChanged: _searchChanged,
+                                            onClear: () {
+                                              _search.clear();
+                                              _searchChanged('');
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        width: width,
+                                        child: _PaperFilter(
+                                          label: 'Course',
+                                          child: SearchableSelectField<int>(
+                                            label: 'Course',
+                                            value:
+                                                _courses.any(
+                                                  (course) =>
+                                                      course.id == _course,
+                                                )
+                                                ? _course
+                                                : null,
+                                            decoration: const InputDecoration(
+                                              isDense: true,
+                                            ),
+                                            options: {
+                                              null: 'All courses',
+                                              for (final course in _courses)
+                                                course.id: course.name,
+                                            },
+                                            onChanged: (value) {
+                                              _course = value;
+                                              _load(reset: true);
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        width: width,
+                                        child: _PaperFilter(
+                                          label: 'Year',
+                                          child: SearchableSelectField<int>(
+                                            label: 'Year',
+                                            value: _years.contains(_year)
+                                                ? _year
+                                                : null,
+                                            decoration: const InputDecoration(
+                                              isDense: true,
+                                            ),
+                                            options: {
+                                              null: 'All years',
+                                              for (final year in _years)
+                                                year: '$year',
+                                            },
+                                            onChanged: (value) {
+                                              _year = value;
+                                              _load(reset: true);
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        width: width,
+                                        child: _PaperFilter(
+                                          label: 'Sitting',
+                                          child: SearchableSelectField<String>(
+                                            label: 'Sitting',
+                                            value: _sittings.contains(_sitting)
+                                                ? _sitting
+                                                : null,
+                                            decoration: const InputDecoration(
+                                              isDense: true,
+                                            ),
+                                            options: {
+                                              null: 'All sittings',
+                                              for (final sitting in _sittings)
+                                                sitting: sitting,
+                                            },
+                                            onChanged: (value) {
+                                              _sitting = value;
+                                              _load(reset: true);
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        Divider(height: 1, color: palette.border),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
+                          child: Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 12,
+                            children: [
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                spacing: 10,
+                                children: [
+                                  const Text(
+                                    'Group by',
+                                    style: AppTextStyles.caption,
+                                  ),
+                                  SearchableSelect<_PaperGrouping>(
+                                    label: 'Group by',
+                                    value: _grouping,
+                                    options: {
+                                      for (final group in _PaperGrouping.values)
+                                        group: group.label,
+                                    },
+                                    onChanged: (value) =>
+                                        setState(() => _grouping = value!),
+                                    child: SizedBox(
+                                      height: 48,
+                                      child: Row(
+                                        children: [
+                                          Text(_grouping.label),
+                                          const Icon(Icons.arrow_drop_down),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                _loading && _papers.isEmpty
+                                    ? 'Finding papers…'
+                                    : '$_total ${_total == 1 ? 'paper' : 'papers'} found',
+                                style: AppTextStyles.caption,
+                              ),
+                            ],
+                          ),
+                        ),
+                        ..._paperGroups(context),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.md),
                   if (_error != null)
@@ -577,10 +668,10 @@ class _PastPapersScreenState extends State<PastPapersScreen> {
                     AppCard(
                       child: Column(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.find_in_page_rounded,
                             size: 46,
-                            color: AppColors.violet,
+                            color: AppPalette.of(context).violet,
                           ),
                           const SizedBox(height: AppSpacing.md),
                           Text(
@@ -602,16 +693,6 @@ class _PastPapersScreenState extends State<PastPapersScreen> {
                         ],
                       ),
                     ),
-                  for (final paper in _papers)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-                      child: _PaperCard(
-                        paper: paper,
-                        opening: _opening,
-                        onOpen: (file) => _open(paper, file),
-                        onEditScore: () => _editScore(paper),
-                      ),
-                    ),
                   if (_loading)
                     const Padding(
                       padding: EdgeInsets.all(24),
@@ -630,6 +711,149 @@ class _PastPapersScreenState extends State<PastPapersScreen> {
       ),
     );
   }
+
+  List<Widget> _paperGroups(BuildContext context) {
+    final groups = <({Object id, String label}), List<PastPaper>>{};
+    for (final paper in _papers) {
+      final key = _grouping.keyFor(paper);
+      groups.putIfAbsent(key, () => []).add(paper);
+    }
+    final keys = groups.keys.toList();
+    if (_grouping == _PaperGrouping.course ||
+        _grouping == _PaperGrouping.sitting) {
+      keys.sort(
+        (left, right) =>
+            left.label.toLowerCase().compareTo(right.label.toLowerCase()),
+      );
+    }
+    final palette = AppPalette.of(context);
+    return [
+      for (final key in keys)
+        if (_grouping == _PaperGrouping.none)
+          _paperGrid(groups[key]!)
+        else
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Divider(height: 1, color: palette.border),
+              ExpansionTile(
+                key: PageStorageKey(('past-papers', _grouping, key)),
+                initiallyExpanded: true,
+                shape: const Border(),
+                collapsedShape: const Border(),
+                title: Text(
+                  '${_grouping.label}: ${key.label}',
+                  style: AppTextStyles.label,
+                ),
+                backgroundColor: palette.surface,
+                collapsedBackgroundColor: palette.elevated,
+                expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+                tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+                visualDensity: VisualDensity.compact,
+                children: [
+                  ColoredBox(
+                    color: palette.surface,
+                    child: _paperGrid(groups[key]!),
+                  ),
+                ],
+              ),
+            ],
+          ),
+    ];
+  }
+
+  Widget _paperGrid(List<PastPaper> papers) => Padding(
+    padding: const EdgeInsets.all(16),
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 1040
+            ? 3
+            : constraints.maxWidth >= 720
+            ? 2
+            : 1;
+        final width = (constraints.maxWidth - (columns - 1) * 16) / columns;
+        return Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: [
+            for (final paper in papers)
+              SizedBox(
+                width: width,
+                child: _PaperCard(
+                  paper: paper,
+                  opening: _opening,
+                  onOpen: (file) => _open(paper, file),
+                  onEditScore: () => _editScore(paper),
+                ),
+              ),
+          ],
+        );
+      },
+    ),
+  );
+}
+
+enum _PaperGrouping {
+  none('None'),
+  year('Year'),
+  course('Course'),
+  sitting('Sitting');
+
+  const _PaperGrouping(this.label);
+  final String label;
+
+  ({Object id, String label}) keyFor(PastPaper paper) => switch (this) {
+    none => (id: '', label: ''),
+    year => (id: paper.year, label: '${paper.year}'),
+    course => (id: paper.course.id, label: paper.course.name),
+    sitting => (
+      id: paper.sitting,
+      label: paper.sitting.isEmpty ? 'Unspecified' : paper.sitting,
+    ),
+  };
+}
+
+class _PaperFilter extends StatelessWidget {
+  const _PaperFilter({required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    spacing: 6,
+    children: [
+      Text(label, style: AppTextStyles.label),
+      child,
+    ],
+  );
+}
+
+ButtonStyle _downloadStyle(BuildContext context, String kind) {
+  final dark = AppPalette.of(context).dark;
+  final (background, foreground) = switch (kind) {
+    'marking_scheme' => (
+      dark ? const Color(0xFF22C55E) : const Color(0xFF4ADE80),
+      const Color(0xFF09361A),
+    ),
+    'examiners_report' => (
+      dark ? const Color(0xFFF59E0B) : const Color(0xFFFBBF24),
+      const Color(0xFF482700),
+    ),
+    _ => (
+      dark ? const Color(0xFF7470DB) : const Color(0xFF605ACC),
+      Colors.white,
+    ),
+  };
+  return FilledButton.styleFrom(
+    backgroundColor: background,
+    foregroundColor: foreground,
+    minimumSize: const Size(0, 36),
+    shape: const StadiumBorder(),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+    textStyle: AppTextStyles.label,
+  );
 }
 
 class _PaperCard extends StatelessWidget {
@@ -645,115 +869,94 @@ class _PaperCard extends StatelessWidget {
   final VoidCallback onEditScore;
   @override
   Widget build(BuildContext context) {
-    final (accent, tint) = AppColors
-        .learningAccents[(paper.id + 1) % AppColors.learningAccents.length];
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: tint,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(Icons.assignment_rounded, color: accent, size: 30),
+    final palette = AppPalette.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: 6,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: palette.elevated,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: palette.border),
               ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(paper.course.name, style: AppTextStyles.caption),
-                    Text(paper.name, style: AppTextStyles.cardTitle),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              Chip(label: Text('${paper.year}'), backgroundColor: tint),
-              if (paper.sitting.isNotEmpty)
-                Chip(label: Text(paper.sitting), backgroundColor: tint),
-              if (paper.totalMarks != null)
-                Chip(
-                  label: Text('${paper.totalMarks} marks'),
-                  backgroundColor: tint,
-                ),
-            ],
-          ),
-          if (paper.details.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Text(paper.details, style: AppTextStyles.body),
-          ],
-          const SizedBox(height: AppSpacing.lg),
-          if (paper.totalMarks != null) ...[
-            OutlinedButton.icon(
-              onPressed: onEditScore,
-              icon: const Icon(Icons.edit_note_rounded),
-              label: Text(
-                paper.myScore == null
-                    ? 'Add marks'
-                    : 'Your marks: ${paper.myScore} / ${paper.totalMarks}',
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-          ],
-          if (paper.documents.isEmpty)
-            const Text(
-              'Documents are not available for this paper yet.',
-              style: AppTextStyles.body,
-            ),
-          for (final file in paper.documents)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  alignment: Alignment.centerLeft,
-                  foregroundColor: accent,
-                  backgroundColor: tint,
-                  side: BorderSide(
-                    color: accent.withValues(alpha: 0.25),
-                    width: 2,
+              child: Column(
+                spacing: 7,
+                children: [
+                  if (paper.details.isNotEmpty)
+                    Text(
+                      paper.details,
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.caption,
+                    ),
+                  Text(
+                    paper.name,
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.title,
                   ),
-                ),
-                onPressed: opening != null ? null : () => onOpen(file),
-                icon: opening == '${paper.id}/${file.kind}'
-                    ? SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: accent,
-                        ),
-                      )
-                    : const Icon(Icons.file_open_rounded),
-                label: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        opening == '${paper.id}/${file.kind}'
-                            ? 'Opening…'
-                            : file.label,
-                      ),
-                      Text(
-                        '${file.name.split('.').last.toUpperCase()} · ${(file.size / 1024).ceil()} KB',
-                        style: AppTextStyles.caption,
-                      ),
-                    ],
+                  Text(
+                    paper.course.name,
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.caption,
                   ),
-                ),
+                  Text('${paper.year}', style: AppTextStyles.caption),
+                  if (paper.sitting.isNotEmpty)
+                    Text(paper.sitting, style: AppTextStyles.caption),
+                  const SizedBox(height: 2),
+                  OutlinedButton(
+                    onPressed: paper.totalMarks == null ? null : onEditScore,
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(double.infinity, 42),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
+                      textStyle: AppTextStyles.label,
+                    ),
+                    child: Text(
+                      paper.totalMarks == null
+                          ? 'Your Marks · No max'
+                          : paper.myScore == null
+                          ? 'Add marks'
+                          : 'Your marks: ${paper.myScore} / ${paper.totalMarks}',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
               ),
             ),
-        ],
+            const SizedBox(height: 2),
+            if (paper.documents.isEmpty)
+              const Text(
+                'Documents are not available for this paper yet.',
+                style: AppTextStyles.caption,
+                textAlign: TextAlign.center,
+              ),
+            for (final file in paper.documents)
+              FilledButton.icon(
+                style: _downloadStyle(context, file.kind),
+                onPressed: opening == null ? () => onOpen(file) : null,
+                icon: const Icon(Icons.download_outlined, size: 16),
+                label: Text(
+                  opening == '${paper.id}/${file.kind}'
+                      ? 'Opening…'
+                      : file.label,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

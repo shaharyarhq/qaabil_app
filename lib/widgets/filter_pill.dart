@@ -26,15 +26,21 @@ class FilterPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor = selected ? AppColors.navy : AppColors.textSecondary;
+    final textColor = selected
+        ? AppPalette.of(context).accent
+        : AppPalette.of(context).textSecondary;
 
     return Material(
-      color: selected ? AppColors.navyTint : AppColors.surface,
+      color: selected
+          ? AppPalette.of(context).navyTint
+          : AppPalette.of(context).surface,
       shape: RoundedRectangleBorder(
         borderRadius: AppRadius.controlRadius,
         side: BorderSide(
           width: 2,
-          color: selected ? AppColors.navy : AppColors.border,
+          color: selected
+              ? AppPalette.of(context).accent
+              : AppPalette.of(context).border,
         ),
       ),
       child: InkWell(
@@ -62,7 +68,9 @@ class FilterPill extends StatelessWidget {
                   '$count',
                   style: AppTextStyles.caption.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: selected ? AppColors.navy : AppColors.textMuted,
+                    color: selected
+                        ? AppPalette.of(context).accent
+                        : AppPalette.of(context).textMuted,
                   ),
                 ),
               ],

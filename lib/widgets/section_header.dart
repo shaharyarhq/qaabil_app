@@ -73,17 +73,17 @@ class SectionHeader extends StatelessWidget {
               width: 58,
               height: 58,
               decoration: BoxDecoration(
-                color: AppColors.amberTint,
+                color: AppPalette.of(context).amberTint,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: AppColors.amber, width: 2),
                 boxShadow: const [
                   BoxShadow(color: AppColors.amberDark, offset: Offset(0, 4)),
                 ],
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.auto_stories_rounded,
                 size: 30,
-                color: AppColors.navy,
+                color: AppPalette.of(context).accent,
               ),
             ),
           ],

@@ -20,6 +20,7 @@ class MemberAreaScreen extends StatelessWidget {
     required this.icon,
     required this.features,
     this.onBrowseCourses,
+    this.showAppearance = false,
   });
 
   final String title;
@@ -27,19 +28,18 @@ class MemberAreaScreen extends StatelessWidget {
   final IconData icon;
   final List<({IconData icon, String title, String description})> features;
   final VoidCallback? onBrowseCourses;
+  final bool showAppearance;
 
   @override
   Widget build(BuildContext context) {
     final session = SessionScope.of(context);
     final member = session.member;
     return Scaffold(
-      appBar: const QaabilAppBar(),
+      appBar: QaabilAppBar(showAppearance: showAppearance),
       body: Align(
         alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: AppSpacing.contentMaxWidth,
-          ),
+        child: SizedBox(
+          width: double.infinity,
           child: ListView(
             padding: const EdgeInsets.all(AppSpacing.screen),
             children: [
@@ -57,8 +57,12 @@ class MemberAreaScreen extends StatelessWidget {
                       alignment: Alignment.centerLeft,
                       child: CircleAvatar(
                         radius: 28,
-                        backgroundColor: AppColors.navyTint,
-                        child: Icon(icon, color: AppColors.navy, size: 28),
+                        backgroundColor: AppPalette.of(context).navyTint,
+                        child: Icon(
+                          icon,
+                          color: AppPalette.of(context).accent,
+                          size: 28,
+                        ),
                       ),
                     ),
                     const SizedBox(height: AppSpacing.lg),
@@ -109,7 +113,10 @@ class MemberAreaScreen extends StatelessWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(feature.icon, color: AppColors.navy),
+                        Icon(
+                          feature.icon,
+                          color: AppPalette.of(context).accent,
+                        ),
                         const SizedBox(width: AppSpacing.md),
                         Expanded(
                           child: Column(

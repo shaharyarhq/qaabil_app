@@ -24,7 +24,7 @@ class LearningProgressView extends StatelessWidget {
           value: (progress.coveragePercent / 100).clamp(0, 1),
           minHeight: 16,
           borderRadius: BorderRadius.circular(10),
-          backgroundColor: AppColors.navyTint,
+          backgroundColor: AppPalette.of(context).navyTint,
           semanticsLabel: 'Objectives started',
           semanticsValue: '${progress.coveragePercent}%',
         ),
@@ -44,15 +44,21 @@ class LearningProgressView extends StatelessWidget {
             ),
             Text(
               '${progress.behind} Behind',
-              style: AppTextStyles.caption.copyWith(color: AppColors.error),
+              style: AppTextStyles.caption.copyWith(
+                color: AppPalette.of(context).error,
+              ),
             ),
             Text(
               '${progress.practice} Practice',
-              style: AppTextStyles.caption.copyWith(color: AppColors.amberText),
+              style: AppTextStyles.caption.copyWith(
+                color: AppPalette.of(context).amberText,
+              ),
             ),
             Text(
               '${progress.mastery} Mastery',
-              style: AppTextStyles.caption.copyWith(color: AppColors.navy),
+              style: AppTextStyles.caption.copyWith(
+                color: AppPalette.of(context).accent,
+              ),
             ),
           ],
         ),

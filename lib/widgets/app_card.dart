@@ -30,11 +30,13 @@ class AppCard extends StatelessWidget {
       // colored top bar).
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: Border.all(color: AppColors.border, width: 2),
+        color: AppPalette.of(context).surface,
+        border: Border.all(color: AppPalette.of(context).border, width: 2),
         borderRadius:
             borderRadius ?? (raised ? AppRadius.panel : AppRadius.card),
-        boxShadow: raised ? AppShadows.raised : AppShadows.card,
+        boxShadow: AppPalette.of(context).dark
+            ? null
+            : (raised ? AppShadows.raised : AppShadows.card),
       ),
       child: child,
     );

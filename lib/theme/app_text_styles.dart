@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'app_colors.dart';
-
 /// Bold, rounded typography for the playful Qaabil interface.
 class AppTextStyles {
   AppTextStyles._();
@@ -16,7 +14,6 @@ class AppTextStyles {
     fontWeight: FontWeight.w800,
     height: 1.25,
     letterSpacing: -0.5,
-    color: AppColors.textPrimary,
   );
 
   /// Bold highlighted words inside a heading.
@@ -26,7 +23,6 @@ class AppTextStyles {
     fontWeight: FontWeight.w800,
     fontSize: 30,
     letterSpacing: 0,
-    color: AppColors.navy,
   );
 
   /// Small uppercase label above a heading, e.g. "MY COURSES".
@@ -35,7 +31,6 @@ class AppTextStyles {
     fontSize: 11.5,
     fontWeight: FontWeight.w800,
     letterSpacing: 1.6,
-    color: AppColors.navy,
   );
 
   /// Big course card titles.
@@ -45,7 +40,6 @@ class AppTextStyles {
     fontWeight: FontWeight.w800,
     height: 1.3,
     letterSpacing: -0.3,
-    color: AppColors.textPrimary,
   );
 
   /// Small uppercase text inside pills, e.g. "11 SECTIONS".
@@ -54,7 +48,6 @@ class AppTextStyles {
     fontSize: 10.5,
     fontWeight: FontWeight.w800,
     letterSpacing: 0.8,
-    color: AppColors.amberText,
   );
 
   /// Small grey text, e.g. "📚 55 chapters".
@@ -62,7 +55,6 @@ class AppTextStyles {
     fontFamily: sans,
     fontSize: 12.5,
     fontWeight: FontWeight.w500,
-    color: AppColors.textMuted,
   );
 
   /// Compact course metadata, e.g. "4 days ago".
@@ -70,7 +62,6 @@ class AppTextStyles {
     fontFamily: sans,
     fontStyle: FontStyle.normal,
     fontSize: 14,
-    color: AppColors.textMuted,
   );
 
   /// Card titles.
@@ -78,7 +69,6 @@ class AppTextStyles {
     fontFamily: sans,
     fontSize: 16,
     fontWeight: FontWeight.w800,
-    color: AppColors.textPrimary,
   );
 
   /// Normal paragraph text.
@@ -87,7 +77,6 @@ class AppTextStyles {
     fontSize: 14,
     fontWeight: FontWeight.w500,
     height: 1.5,
-    color: AppColors.textSecondary,
   );
 
   /// Labels above text fields.
@@ -95,7 +84,6 @@ class AppTextStyles {
     fontFamily: sans,
     fontSize: 13.5,
     fontWeight: FontWeight.w700,
-    color: AppColors.textPrimary,
   );
 
   /// Text inside buttons.

@@ -5,9 +5,8 @@ import '../models/objective_resources.dart';
 import '../services/member_api.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
-import '../theme/app_tokens.dart';
 
-/// Real attachments at a course, section or chapter, opened with member auth.
+/// Real attachments at a course, section, chapter or objective, opened with member auth.
 class CurriculumNotes extends StatefulWidget {
   const CurriculumNotes({
     super.key,
@@ -16,11 +15,13 @@ class CurriculumNotes extends StatefulWidget {
     required this.notes,
     required this.accent,
     required this.tint,
+    this.stacked = false,
   });
   final String kind;
   final int resourceId;
   final List<LessonNote> notes;
   final Color accent, tint;
+  final bool stacked;
 
   @override
   State<CurriculumNotes> createState() => _CurriculumNotesState();
@@ -32,8 +33,12 @@ class _CurriculumNotesState extends State<CurriculumNotes> {
   Future<void> _open(LessonNote note) async {
     setState(() => _opening = note.id);
     try {
-      await SessionScope.of(context)
-          .openCurriculumNote(widget.kind, widget.resourceId, note);
+      final session = SessionScope.of(context);
+      if (widget.kind == 'objective') {
+        await session.openNote(widget.resourceId, note);
+      } else {
+        await session.openCurriculumNote(widget.kind, widget.resourceId, note);
+      }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -56,72 +61,53 @@ class _CurriculumNotesState extends State<CurriculumNotes> {
     if (widget.notes.isEmpty || SessionScope.of(context).member == null) {
       return const SizedBox.shrink();
     }
-    final title = switch (widget.kind) {
-      'course' => 'Course notes',
-      'section' => 'Section notes',
-      _ => 'Chapter notes',
-    };
-    return Padding(
-      padding: const EdgeInsets.only(top: AppSpacing.lg, bottom: AppSpacing.sm),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(title, style: AppTextStyles.label),
-          const SizedBox(height: AppSpacing.sm),
-          for (final note in widget.notes)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: Material(
-                color: widget.tint,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(
-                    color: widget.accent.withValues(alpha: 0.25),
-                    width: 2,
-                  ),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 5,
-                  ),
-                  leading: Icon(
-                    note.mime == 'application/pdf'
-                        ? Icons.picture_as_pdf_rounded
-                        : Icons.description_rounded,
-                    color: widget.accent,
-                    size: 28,
-                  ),
-                  title: Text(note.name, style: AppTextStyles.label),
-                  subtitle: Text(
-                    _opening == note.id
-                        ? 'Opening…'
-                        : '${note.name.split('.').last.toUpperCase()} · ${(note.size / 1024).ceil()} KB · Tap to open',
-                    style: AppTextStyles.caption.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  trailing: _opening == note.id
-                      ? SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: widget.accent,
-                          ),
-                        )
-                      : Icon(
-                          Icons.open_in_new_rounded,
-                          color: widget.accent,
-                          size: 22,
-                        ),
-                  onTap: _opening != null ? null : () => _open(note),
-                ),
+    final inHero = widget.kind == 'course';
+    final title = inHero ? 'Course notes' : 'Download ${widget.kind} notes';
+    final buttons = [
+      for (final note in widget.notes)
+        Tooltip(
+          message: note.name,
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: inHero
+                  ? Colors.white
+                  : AppPalette.of(context).accent,
+              backgroundColor: widget.tint,
+              side: BorderSide(
+                color: inHero
+                    ? const Color(0x20FFFFFF)
+                    : const Color(0x241B3A6B),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              minimumSize: const Size(0, 38),
+              tapTargetSize: inHero ? MaterialTapTargetSize.shrinkWrap : null,
+              textStyle: AppTextStyles.label.copyWith(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
               ),
             ),
-        ],
-      ),
+            onPressed: _opening == null ? () => _open(note) : null,
+            icon: Icon(Icons.download_rounded, size: 14, color: widget.accent),
+            label: Text(_opening == note.id ? 'Opening…' : title),
+          ),
+        ),
+    ];
+    if (inHero || widget.stacked) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: 8,
+        children: buttons,
+      );
+    }
+    if (buttons.length == 1) return buttons.single;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.end,
+      children: buttons,
     );
   }
 }

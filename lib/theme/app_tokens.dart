@@ -20,14 +20,8 @@ class AppSpacing {
   /// Widest a form can get on tablets / landscape, so it doesn't stretch.
   static const double formMaxWidth = 440;
 
-  /// Widest a list of content can get on tablets / landscape.
-  static const double contentMaxWidth = 640;
-
-  /// Widest a grid of cards can get (the courses page).
-  static const double gridMaxWidth = 1040;
-
-  /// Screens at least this wide show two course cards per row.
-  static const double twoColumnBreakpoint = 600;
+  /// Keeps the player from growing beyond a practical size on a large display.
+  static const double playerMaxWidth = 960;
 }
 
 /// Corner radii, matching the rounded corners on qaabil.io.

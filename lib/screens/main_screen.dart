@@ -26,6 +26,7 @@ class _MainScreenState extends State<MainScreen> {
         children: [
           const CoursesScreen(),
           MyLearningScreen(
+            active: _selectedTab == 1,
             onBrowseCourses: () => setState(() => _selectedTab = 0),
           ),
           PastPapersScreen(
@@ -38,42 +39,38 @@ class _MainScreenState extends State<MainScreen> {
         ],
       ),
       bottomNavigationBar: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
-          border: Border(top: BorderSide(color: AppColors.border, width: 2)),
-        ),
-        child: Center(
-          heightFactor: 1,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 760),
-            child: NavigationBar(
-              selectedIndex: _selectedTab,
-              onDestinationSelected: (index) =>
-                  setState(() => _selectedTab = index),
-              destinations: const [
-                NavigationDestination(
-                  icon: Icon(Icons.menu_book_outlined),
-                  selectedIcon: _SelectedIcon(Icons.menu_book_rounded),
-                  label: 'Courses',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.school_outlined),
-                  selectedIcon: _SelectedIcon(Icons.school_rounded),
-                  label: 'My Learning',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.assignment_outlined),
-                  selectedIcon: _SelectedIcon(Icons.assignment_rounded),
-                  label: 'Past Papers',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.person_outline),
-                  selectedIcon: _SelectedIcon(Icons.person_rounded),
-                  label: 'Profile',
-                ),
-              ],
-            ),
+        decoration: BoxDecoration(
+          color: AppPalette.of(context).surface,
+          border: Border(
+            top: BorderSide(color: AppPalette.of(context).border, width: 2),
           ),
+        ),
+        child: NavigationBar(
+          selectedIndex: _selectedTab,
+          onDestinationSelected: (index) =>
+              setState(() => _selectedTab = index),
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.menu_book_outlined),
+              selectedIcon: _SelectedIcon(Icons.menu_book_rounded),
+              label: 'Courses',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.school_outlined),
+              selectedIcon: _SelectedIcon(Icons.school_rounded),
+              label: 'My Learning',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.assignment_outlined),
+              selectedIcon: _SelectedIcon(Icons.assignment_rounded),
+              label: 'Past Papers',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline),
+              selectedIcon: _SelectedIcon(Icons.person_rounded),
+              label: 'Profile',
+            ),
+          ],
         ),
       ),
     );
@@ -87,13 +84,13 @@ class _SelectedIcon extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
     decoration: BoxDecoration(
-      color: AppColors.amberTint,
+      color: AppPalette.of(context).amberTint,
       borderRadius: BorderRadius.circular(14),
       border: Border.all(color: AppColors.amber, width: 2),
       boxShadow: const [
         BoxShadow(color: AppColors.amberDark, offset: Offset(0, 2)),
       ],
     ),
-    child: Icon(icon, color: AppColors.navy, size: 25),
+    child: Icon(icon, color: AppPalette.of(context).accent, size: 25),
   );
 }

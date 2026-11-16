@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -150,8 +152,43 @@ class MemberSession extends ChangeNotifier {
     }
   }
 
-  Future<MemberCoursePage> courses({int page = 1}) =>
-      _authorized((token) => api.courses(token, page: page));
+  Future<MemberCoursePage> courses({int page = 1, String search = ''}) =>
+      _authorized((token) => api.courses(token, page: page, search: search));
+
+  Future<
+    ({
+      Map<String, String> languages,
+      Map<String, String> focuses,
+      int? uploadMaxMb,
+    })
+  >
+  submissionOptions() => _authorized(api.submissionOptions);
+
+  Future<bool> submitVideo(Map<String, String> fields) =>
+      _authorized((token) => api.submitVideo(token, fields));
+
+  Future<bool> uploadVideo(
+    Map<String, String> fields, {
+    required String filename,
+    required int size,
+    required Stream<List<int>> stream,
+    required void Function(double) onProgress,
+  }) => _authorized(
+    (token) => api.uploadVideo(
+      token,
+      fields,
+      filename: filename,
+      size: size,
+      stream: stream,
+      onProgress: onProgress,
+    ),
+  );
+
+  Future<VideoSubmission> submission(int id) =>
+      _authorized((token) => api.submission(token, id));
+
+  Future<void> updateSubmission(int id, Map<String, String> fields) =>
+      _authorized((token) => api.updateSubmission(token, id, fields));
 
   Future<SubmissionPage> submissions({int page = 1}) =>
       _authorized((token) => api.submissions(token, page: page));
@@ -176,15 +213,26 @@ class MemberSession extends ChangeNotifier {
   Future<int> savePaperScore(int paperId, int score) =>
       _authorized((token) => api.savePaperScore(token, paperId, score));
 
-  Future<void> openPaperReport(int courseId) async {
+  Future<void> openPaperReport(int courseId) =>
+      _openProgressReport(courseId, 'past-papers-report.pdf', api.paperReport);
+
+  Future<void> openCourseReport(int courseId) => _openProgressReport(
+    courseId,
+    'course-progress-report.pdf',
+    api.courseReport,
+  );
+
+  Future<void> _openProgressReport(
+    int courseId,
+    String name,
+    Future<Uint8List> Function(String, int) download,
+  ) async {
     final token = _token;
-    final bytes = await _authorized(
-      (token) => api.paperReport(token, courseId),
-    );
+    final bytes = await _authorized((token) => download(token, courseId));
     await _noteFiles.open(
       LessonNote(
         id: courseId,
-        name: 'past-papers-report.pdf',
+        name: name,
         size: bytes.length,
         mime: 'application/pdf',
       ),

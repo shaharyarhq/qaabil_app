@@ -3,145 +3,118 @@ import 'package:flutter/material.dart';
 import '../models/catalogue_course.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
-import '../theme/app_tokens.dart';
 import '../utils/formatters.dart';
-import 'app_card.dart';
 
-/// A playful course tile, displaying only metadata from the catalogue API.
+/// A course tile using metadata from the public catalogue API.
 class CourseCard extends StatelessWidget {
   const CourseCard({super.key, required this.course, this.onTap});
+
   final CatalogueCourse course;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final (accent, tint) =
-        AppColors.learningAccents[course.id % AppColors.learningAccents.length];
-    return AppCard(
-      padding: EdgeInsets.zero,
-      borderRadius: AppRadius.panel,
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.xl),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  height: 6,
-                  margin: const EdgeInsets.only(bottom: AppSpacing.lg),
-                  decoration: BoxDecoration(
-                    color: accent,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                ),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+    final date = course.updatedOn ?? course.addedOn;
+    return Material(
+      color: AppPalette.of(context).surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: AppPalette.of(context).border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 320),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ColoredBox(
+                color: AppPalette.of(context).accent,
+                child: SizedBox(height: 5),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          if (course.qualification?.isNotEmpty == true)
-                            Text(
-                              course.qualification!,
-                              style: AppTextStyles.eyebrow.copyWith(
-                                fontSize: 10,
-                                letterSpacing: 0.7,
-                                color: accent,
+                          Flexible(
+                            child: _SectionCount(count: course.sections),
+                          ),
+                          if (date != null) ...[
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                timeAgo(date),
+                                textAlign: TextAlign.end,
+                                style: TextStyle(
+                                  fontFamily: AppTextStyles.serif,
+                                  fontStyle: FontStyle.italic,
+                                  color: AppPalette.of(context).textMuted,
+                                  fontSize: 12,
+                                ),
                               ),
                             ),
-                          const SizedBox(height: AppSpacing.sm),
-                          Text(course.name, style: AppTextStyles.cardTitle),
+                          ],
                         ],
                       ),
-                    ),
-                    const SizedBox(width: AppSpacing.md),
-                    Container(
-                      width: 60,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        color: tint,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: accent.withValues(alpha: 0.2),
-                          width: 2,
+                      const SizedBox(height: 16),
+                      Text(
+                        course.name,
+                        style: AppTextStyles.cardTitle.copyWith(
+                          color: AppPalette.of(context).textPrimary,
+                          fontSize: 21,
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: accent.withValues(alpha: 0.16),
-                            offset: const Offset(0, 4),
+                      ),
+                      if (course.description.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          course.description,
+                          maxLines: 4,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.body.copyWith(
+                            color: AppPalette.of(context).textSecondary,
+                          ),
+                        ),
+                      ],
+                      const Spacer(),
+                      const SizedBox(height: 20),
+                      Divider(height: 1, color: AppPalette.of(context).border),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Flexible(
+                            child: _CourseMetric(
+                              icon: Icons.menu_book_outlined,
+                              color: AppPalette.of(context).teal,
+                              text: pluralize(course.chapters, 'chapter'),
+                              style: AppTextStyles.caption,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: _CourseMetric(
+                              icon: Icons.local_fire_department_rounded,
+                              color: const Color(0xFFE87917),
+                              text: pluralize(course.videos, 'video'),
+                              style: AppTextStyles.label.copyWith(
+                                color: AppPalette.of(context).accent,
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                      child: Icon(
-                        Icons.auto_stories_rounded,
-                        size: 32,
-                        color: accent,
-                      ),
-                    ),
-                  ],
-                ),
-                if (course.description.isNotEmpty) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    course.description,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTextStyles.body,
+                    ],
                   ),
-                ],
-                const SizedBox(height: AppSpacing.xl),
-                Wrap(
-                  spacing: AppSpacing.sm,
-                  runSpacing: AppSpacing.sm,
-                  children: [
-                    _Metric(
-                      Icons.layers_rounded,
-                      pluralize(course.sections, 'section'),
-                    ),
-                    _Metric(
-                      Icons.menu_book_rounded,
-                      pluralize(course.chapters, 'chapter'),
-                    ),
-                    _Metric(
-                      Icons.play_circle_rounded,
-                      pluralize(course.videos, 'video'),
-                    ),
-                  ],
                 ),
-                const SizedBox(height: AppSpacing.lg),
-                const Divider(height: 2),
-                const SizedBox(height: AppSpacing.md),
-                Row(
-                  children: [
-                    const Expanded(
-                      child: Text('Explore course', style: AppTextStyles.label),
-                    ),
-                    if (course.addedOn != null)
-                      Text(
-                        timeAgo(course.addedOn!),
-                        style: AppTextStyles.caption,
-                      ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: tint,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        Icons.arrow_forward_rounded,
-                        color: accent,
-                        size: 20,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -149,27 +122,54 @@ class CourseCard extends StatelessWidget {
   }
 }
 
-class _Metric extends StatelessWidget {
-  const _Metric(this.icon, this.text);
+class _CourseMetric extends StatelessWidget {
+  const _CourseMetric({
+    required this.icon,
+    required this.color,
+    required this.text,
+    required this.style,
+  });
+
   final IconData icon;
+  final Color color;
   final String text;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    spacing: 4,
+    children: [
+      Icon(icon, size: 14, color: color),
+      Flexible(child: Text(text, style: style)),
+    ],
+  );
+}
+
+class _SectionCount extends StatelessWidget {
+  const _SectionCount({required this.count});
+
+  final int count;
+
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
     decoration: BoxDecoration(
-      color: AppColors.background,
-      borderRadius: BorderRadius.circular(11),
+      color: AppPalette.of(context).amberTint,
+      borderRadius: BorderRadius.circular(6),
+      border: Border.all(color: const Color(0x26B45309)),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: AppColors.textMuted),
-        const SizedBox(width: 5),
-        Text(
-          text,
-          style: AppTextStyles.caption.copyWith(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
+        const Icon(Icons.circle, color: Color(0xFFF59E0B), size: 5),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            pluralize(count, 'section').toUpperCase(),
+            style: AppTextStyles.pill.copyWith(
+              color: AppPalette.of(context).amberText,
+            ),
           ),
         ),
       ],

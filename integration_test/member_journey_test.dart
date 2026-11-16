@@ -117,8 +117,10 @@ void main() {
         await tester.enterText(find.byType(TextFormField).at(1), password);
         FocusManager.instance.primaryFocus?.unfocus();
         await tester.pump(const Duration(milliseconds: 500));
-        await tester.ensureVisible(find.widgetWithText(FilledButton, 'Login'));
-        await tester.tap(find.widgetWithText(FilledButton, 'Login'));
+        await tester.ensureVisible(
+          find.widgetWithText(FilledButton, 'Sign in'),
+        );
+        await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
         await waitFor(tester, find.text('Practice'));
         expect(session.member, isNotNull);
         expect(await store.read(), isNotNull);

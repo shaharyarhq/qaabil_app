@@ -15,10 +15,8 @@ class GetAccessScreen extends StatelessWidget {
       appBar: const QaabilAppBar(),
       body: Align(
         alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: AppSpacing.contentMaxWidth,
-          ),
+        child: SizedBox(
+          width: double.infinity,
           child: ListView(
             padding: const EdgeInsets.all(AppSpacing.screen),
             children: [

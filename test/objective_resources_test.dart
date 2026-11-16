@@ -12,6 +12,7 @@ import 'package:qaabil_mobile/models/objective_resources.dart';
 import 'package:qaabil_mobile/screens/objective_resources_screen.dart';
 import 'package:qaabil_mobile/services/member_api.dart';
 import 'package:qaabil_mobile/services/note_files.dart';
+import 'package:qaabil_mobile/widgets/objective_video_preview.dart';
 
 class _Store implements TokenStore {
   @override
@@ -100,7 +101,10 @@ void main() {
       });
       expect(find.text('Accounting basics'), findsOneWidget);
       expect(find.text('lesson.pdf'), findsOneWidget);
-      await tester.tap(find.text('Open video'));
+      final card = find.byType(ObjectiveVideoCard);
+      await tester.ensureVisible(card);
+      await tester.pumpAndSettle();
+      await tester.tap(card);
       await tester.pumpAndSettle();
       expect(
         find.text('Playback is not available in this build yet.'),
@@ -109,6 +113,102 @@ void main() {
       expect(find.text('Log in again to watch this video.'), findsNothing);
     },
   );
+
+  testWidgets('Objective filters combine and videos sort in the tablet grid', (
+    tester,
+  ) async {
+    await _open(
+      tester,
+      (_) async => _json({
+        'data': {
+          'objective': {'name': 'Double entry'},
+          'videos': [
+            {
+              'id': 8,
+              'title': 'Accounting basics',
+              'creator': 'Tutor A',
+              'creator_id': 1,
+              'language': 'English',
+              'focus': 'lesson_focused',
+              'submitted_at': '2026-11-01T00:00:00Z',
+              'average_rating': 4.5,
+              'review_count': 2,
+            },
+            {
+              'id': 9,
+              'title': 'Practice exercises',
+              'creator': 'Tutor B',
+              'creator_id': 2,
+              'language': 'Urdu',
+              'focus': 'question_focused',
+              'submitted_at': '2026-11-02T00:00:00Z',
+            },
+          ],
+          'notes': [
+            {
+              'id': 0,
+              'name': 'lesson.pdf',
+              'size': 1024,
+              'mime': 'application/pdf',
+            },
+          ],
+        },
+      }),
+    );
+    tester.view.physicalSize = const Size(1280, 820);
+    await tester.pumpAndSettle();
+    expect(find.text('4.5 (2)'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Accounting basics')).dy,
+      tester.getTopLeft(find.text('Practice exercises')).dy,
+    );
+    expect(
+      tester.getTopLeft(find.text('Accounting basics')).dx,
+      greaterThan(tester.getTopLeft(find.text('Practice exercises')).dx),
+    );
+
+    await tester.tap(find.text('Newest first'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Highest rating first').last);
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(find.text('Practice exercises')).dx,
+      greaterThan(tester.getTopLeft(find.text('Accounting basics')).dx),
+    );
+
+    await tester.tap(find.byTooltip('All focus types'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Question Focused').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Accounting basics'), findsNothing);
+    expect(find.text('Practice exercises'), findsOneWidget);
+
+    await tester.tap(find.text('Clear filters'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'tutor a');
+    await tester.pumpAndSettle();
+    expect(find.text('Accounting basics'), findsOneWidget);
+    expect(find.text('Practice exercises'), findsNothing);
+
+    await tester.tap(find.byTooltip('All languages'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Urdu').last);
+    await tester.pumpAndSettle();
+    expect(
+      find.text('No videos match your search or filters.'),
+      findsOneWidget,
+    );
+    expect(find.text('lesson.pdf'), findsOneWidget);
+
+    await tester.tap(find.text('Clear filters'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('All creators'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tutor B').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Accounting basics'), findsNothing);
+    expect(find.text('Practice exercises'), findsOneWidget);
+  });
 
   testWidgets('Objective empty resources and retry states are explicit', (
     tester,

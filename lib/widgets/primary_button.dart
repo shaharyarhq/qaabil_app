@@ -41,7 +41,7 @@ class _PrimaryButtonState extends State<PrimaryButton> {
               : [
                   BoxShadow(
                     color: widget.onPressed == null
-                        ? AppColors.border
+                        ? AppPalette.of(context).border
                         : AppColors.navyDark,
                     offset: const Offset(0, 5),
                     blurRadius: 0,

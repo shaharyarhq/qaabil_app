@@ -70,10 +70,10 @@ class _YoutubeVideoState extends State<YoutubeVideo> {
 
   @override
   Widget build(BuildContext context) => Align(
-    alignment: Alignment.topCenter,
+    alignment: Alignment.topLeft,
     heightFactor: 1,
     child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: AppSpacing.contentMaxWidth),
+      constraints: const BoxConstraints(maxWidth: AppSpacing.playerMaxWidth),
       child: StreamBuilder<YoutubePlayerValue>(
         key: ValueKey(_controller),
         stream: _controller.stream,

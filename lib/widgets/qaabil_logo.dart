@@ -11,6 +11,9 @@ class QaabilLogo extends StatelessWidget {
     return Image.asset(
       'assets/images/qaabil_logo.png',
       height: height,
+      color: Theme.of(context).brightness == Brightness.dark
+          ? Colors.white
+          : null,
       semanticLabel: 'Qaabil',
     );
   }

@@ -35,6 +35,9 @@ class MemberCourse {
     this.progress,
     this.qualification,
     this.description = '',
+    this.videoCount,
+    this.createdAt,
+    this.updatedAt,
     this.notes = const [],
     this.sections = const [],
   });
@@ -42,6 +45,8 @@ class MemberCourse {
   final String name;
   final String? qualification;
   final String description;
+  final int? videoCount;
+  final DateTime? createdAt, updatedAt;
   final List<LessonNote> notes;
   final LearningProgress? progress;
   final List<OutlineSection> sections;
@@ -51,6 +56,9 @@ class MemberCourse {
     name: json['name'] as String,
     qualification: json['qualification'] as String?,
     description: json['description'] as String? ?? '',
+    videoCount: json['videos_count'] as int?,
+    createdAt: DateTime.tryParse(json['created_at'] as String? ?? ''),
+    updatedAt: DateTime.tryParse(json['updated_at'] as String? ?? ''),
     notes: _notes(json),
     progress: json['progress'] == null
         ? null
@@ -67,15 +75,18 @@ class OutlineSection {
     required this.name,
     required this.chapters,
     this.notes = const [],
+    this.quizPath,
   });
   final int id;
   final String name;
   final List<OutlineChapter> chapters;
   final List<LessonNote> notes;
+  final String? quizPath;
   factory OutlineSection.fromJson(Map<String, dynamic> json) => OutlineSection(
     id: json['id'] as int,
     name: json['name'] as String,
     notes: _notes(json),
+    quizPath: json['quiz_path'] as String?,
     chapters: (json['chapters'] as List<dynamic>)
         .map((c) => OutlineChapter.fromJson(c as Map<String, dynamic>))
         .toList(),
@@ -88,15 +99,18 @@ class OutlineChapter {
     required this.name,
     required this.objectives,
     this.notes = const [],
+    this.quizPath,
   });
   final int id;
   final String name;
   final List<OutlineObjective> objectives;
   final List<LessonNote> notes;
+  final String? quizPath;
   factory OutlineChapter.fromJson(Map<String, dynamic> json) => OutlineChapter(
     id: json['id'] as int,
     name: json['name'] as String,
     notes: _notes(json),
+    quizPath: json['quiz_path'] as String?,
     objectives: (json['objectives'] as List<dynamic>)
         .map((o) => OutlineObjective.fromJson(o as Map<String, dynamic>))
         .toList(),
@@ -108,10 +122,12 @@ class OutlineObjective {
     required this.id,
     required this.name,
     required this.status,
+    this.quizPath,
   });
   final int id;
   final String name;
   final String status;
+  final String? quizPath;
   String get statusLabel => switch (status) {
     'behind' => 'Behind',
     'practice' => 'Practice',
@@ -123,6 +139,7 @@ class OutlineObjective {
         id: json['id'] as int,
         name: json['name'] as String,
         status: json['status'] as String? ?? 'not_started',
+        quizPath: json['quiz_path'] as String?,
       );
 }
 

@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+
+import '../widgets/searchable_select.dart';
 
 import '../auth/member_session.dart';
 import '../models/catalogue_course.dart';
@@ -10,11 +13,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../theme/app_tokens.dart';
 import '../widgets/course_card.dart';
-import '../widgets/filter_pill.dart';
 import '../widgets/qaabil_app_bar.dart';
-import '../widgets/search_field.dart';
-import '../widgets/section_header.dart';
-import '../widgets/sort_button.dart';
 import 'member_course_screen.dart';
 
 /// The public catalogue uses the same Laravel course records as the website.
@@ -32,7 +31,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
   Timer? _debounce;
   int? _qualification;
   CourseSort _sort = CourseSort.newest;
-  int _version = 0, _page = 0, _lastPage = 1, _total = 0, _catalogueTotal = 0;
+  int _version = 0, _page = 0, _lastPage = 1, _total = 0;
   bool _loading = false;
   String? _error;
 
@@ -100,7 +99,6 @@ class _CoursesScreenState extends State<CoursesScreen> {
         _page = result.page;
         _lastPage = result.lastPage;
         _total = result.total;
-        _catalogueTotal = result.catalogueTotal;
       });
     } on ApiException catch (e) {
       if (mounted && version == _version) setState(() => _error = e.message);
@@ -109,117 +107,409 @@ class _CoursesScreenState extends State<CoursesScreen> {
     }
   }
 
+  void _clearSearch() {
+    _searchController.clear();
+    _queryChanged();
+  }
+
+  void _setQualification(int? value) {
+    _qualification = value;
+    _queryChanged();
+  }
+
+  void _setSort(CourseSort value) {
+    _sort = value;
+    _queryChanged();
+  }
+
   void _clearSearchAndFilters() {
     _searchController.clear();
     _qualification = null;
+    _sort = CourseSort.newest;
     _queryChanged();
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: const QaabilAppBar(),
-    body: GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: AppSpacing.gridMaxWidth),
-          child: RefreshIndicator(
-            onRefresh: () => _load(reset: true),
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.all(AppSpacing.screen),
-              children: [
-                const SectionHeader(
-                  eyebrow: 'All courses',
-                  title: 'Start learning ',
-                  accent: 'today',
-                  sparkle: true,
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                SearchField(
-                  controller: _searchController,
-                  onChanged: (_) => _queryChanged(debounce: true),
-                  onClear: () {
-                    _searchController.clear();
-                    _queryChanged();
-                  },
-                ),
-                const SizedBox(height: AppSpacing.md),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      FilterPill(
-                        label: 'All',
-                        count: _catalogueTotal,
-                        selected: _qualification == null,
-                        onTap: () {
-                          _qualification = null;
-                          _queryChanged();
-                        },
-                      ),
-                      for (final q in _qualifications) ...[
-                        const SizedBox(width: AppSpacing.sm),
-                        FilterPill(
-                          label: q.name,
-                          count: q.count,
-                          selected: _qualification == q.id,
-                          onTap: () {
-                            _qualification = q.id;
-                            _queryChanged();
-                          },
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xl),
+    backgroundColor: AppPalette.of(context).background,
+    appBar: MediaQuery.sizeOf(context).width >= 640
+        ? const QaabilAppBar(height: 76, logoHeight: 44)
+        : const QaabilAppBar(),
+    body: LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final inset = math.max(24.0, (width - 1440) / 2 + 24);
+        final search = _searchField();
+        final filters = _filters();
+        final hasFilters =
+            _searchController.text.trim().isNotEmpty ||
+            _qualification != null ||
+            _sort != CourseSort.newest;
+        return RefreshIndicator(
+          onRefresh: () => _load(reset: true),
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(
+              inset,
+              width >= 640 ? 63 : 56,
+              inset,
+              56,
+            ),
+            children: [
+              _CatalogueHeader(count: _total, showCount: width >= 720),
+              const SizedBox(height: 32),
+              if (width >= 640)
                 Row(
                   children: [
-                    Expanded(child: _ResultCount(count: _total)),
-                    SortButton(
-                      value: _sort,
-                      onChanged: (sort) {
-                        _sort = sort;
-                        _queryChanged();
-                      },
+                    Expanded(child: search),
+                    const SizedBox(width: 12),
+                    SizedBox(width: 342, child: filters),
+                  ],
+                )
+              else ...[
+                search,
+                const SizedBox(height: 12),
+                filters,
+              ],
+              if (hasFilters) ...[const SizedBox(height: 12), _activeFilters()],
+              const SizedBox(height: 32),
+              if (_loading && _courses.isEmpty)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+              if (_error != null)
+                Column(
+                  children: [
+                    Text(_error!, textAlign: TextAlign.center),
+                    TextButton(
+                      onPressed: _loading
+                          ? null
+                          : () => _load(reset: _courses.isEmpty),
+                      child: const Text('Retry'),
                     ),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.lg),
-                if (_loading && _courses.isEmpty)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: CircularProgressIndicator(),
-                    ),
-                  ),
-                if (_error != null)
-                  Column(
-                    children: [
-                      Text(_error!, textAlign: TextAlign.center),
-                      TextButton(
-                        onPressed: _loading
-                            ? null
-                            : () => _load(reset: _courses.isEmpty),
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
-                if (!_loading && _error == null && _courses.isEmpty)
-                  _NoResults(onClear: _clearSearchAndFilters),
-                _CourseGrid(courses: _courses),
-                if (_courses.isNotEmpty && _page < _lastPage)
-                  TextButton(
-                    onPressed: _loading ? null : () => _load(),
-                    child: Text(_loading ? 'Loading…' : 'Load more courses'),
-                  ),
-              ],
+              if (!_loading && _error == null && _courses.isEmpty)
+                _NoResults(onClear: _clearSearchAndFilters),
+              _CourseGrid(
+                courses: _courses,
+                columns: width >= 1024
+                    ? 4
+                    : width >= 720
+                    ? 2
+                    : 1,
+              ),
+              if (_courses.isNotEmpty && _page < _lastPage)
+                TextButton(
+                  onPressed: _loading ? null : () => _load(),
+                  child: Text(_loading ? 'Loading…' : 'Load more courses'),
+                ),
+            ],
+          ),
+        );
+      },
+    ),
+  );
+
+  Widget _searchField() => TextField(
+    controller: _searchController,
+    onChanged: (_) => _queryChanged(debounce: true),
+    onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
+    textInputAction: TextInputAction.search,
+    style: AppTextStyles.body.copyWith(
+      color: AppPalette.of(context).textPrimary,
+    ),
+    decoration: InputDecoration(
+      hintText: 'Search courses…',
+      hintStyle: AppTextStyles.body.copyWith(
+        color: AppPalette.of(context).textMuted,
+      ),
+      filled: true,
+      fillColor: AppPalette.of(context).surface,
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      prefixIcon: Icon(
+        Icons.search,
+        size: 19,
+        color: AppPalette.of(context).textMuted,
+      ),
+      suffixIcon: _searchController.text.isEmpty
+          ? null
+          : IconButton(
+              tooltip: 'Clear search',
+              onPressed: _clearSearch,
+              icon: const Icon(Icons.close, size: 16),
             ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(14)),
+        borderSide: BorderSide(color: AppPalette.of(context).border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(14)),
+        borderSide: BorderSide(color: AppPalette.of(context).accent),
+      ),
+    ),
+  );
+
+  String? get _qualificationName {
+    for (final qualification in _qualifications) {
+      if (qualification.id == _qualification) return qualification.name;
+    }
+    return null;
+  }
+
+  Widget _filters() => Row(
+    children: [
+      Expanded(
+        flex: 7,
+        child: _CatalogueSelect<int>(
+          tooltip: 'Filter by qualification',
+          icon: Icons.school_outlined,
+          label: _qualificationName ?? 'All qualifications',
+          value: _qualification ?? 0,
+          options: [
+            (0, 'All qualifications'),
+            for (final qualification in _qualifications)
+              (
+                qualification.id,
+                '${qualification.name} (${qualification.count})',
+              ),
+          ],
+          onSelected: (value) => _setQualification(value == 0 ? null : value),
+        ),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        flex: 5,
+        child: _CatalogueSelect<CourseSort>(
+          tooltip: 'Sort courses',
+          icon: Icons.sort_rounded,
+          label: _sort.label,
+          value: _sort,
+          options: [for (final sort in CourseSort.values) (sort, sort.label)],
+          onSelected: _setSort,
+        ),
+      ),
+    ],
+  );
+
+  Widget _activeFilters() => Wrap(
+    spacing: 8,
+    runSpacing: 6,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    children: [
+      Text(
+        'ACTIVE FILTERS',
+        style: AppTextStyles.eyebrow.copyWith(
+          fontSize: 10,
+          letterSpacing: .8,
+          color: AppPalette.of(context).textMuted,
+        ),
+      ),
+      if (_searchController.text.trim().isNotEmpty)
+        _CatalogueFilterBadge(
+          label: '“${_searchController.text.trim()}”',
+          icon: Icons.search,
+          color: AppPalette.of(context).accent,
+          tint: AppPalette.of(context).navyTint,
+          removeLabel: 'Remove search filter',
+          onRemove: _clearSearch,
+        ),
+      if (_qualification != null)
+        _CatalogueFilterBadge(
+          label: _qualificationName ?? 'Qualification',
+          icon: Icons.school_outlined,
+          color: AppPalette.of(context).teal,
+          tint: AppPalette.of(context).tealTint,
+          removeLabel: 'Remove qualification filter',
+          onRemove: () => _setQualification(null),
+        ),
+      if (_sort != CourseSort.newest)
+        _CatalogueFilterBadge(
+          label: _sort.label,
+          icon: Icons.sort_rounded,
+          color: AppPalette.of(context).amberText,
+          tint: AppPalette.of(context).amberTint,
+          removeLabel: 'Remove sort filter',
+          onRemove: () => _setSort(CourseSort.newest),
+        ),
+      TextButton(
+        onPressed: _clearSearchAndFilters,
+        child: Text(
+          'Clear all',
+          style: AppTextStyles.caption.copyWith(
+            decoration: TextDecoration.underline,
           ),
         ),
       ),
+    ],
+  );
+}
+
+class _CatalogueHeader extends StatelessWidget {
+  const _CatalogueHeader({required this.count, required this.showCount});
+
+  final int count;
+  final bool showCount;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        children: [
+          Container(
+            width: 18,
+            height: 3,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF59E0B),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Text('ALL COURSES', style: AppTextStyles.eyebrow),
+        ],
+      ),
+      const SizedBox(height: 8),
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: Semantics(
+              header: true,
+              child: Text.rich(
+                TextSpan(
+                  text: 'Start learning ',
+                  children: [
+                    TextSpan(
+                      text: 'today',
+                      style: TextStyle(
+                        color: AppPalette.of(context).accent,
+                        fontFamily: AppTextStyles.serif,
+                        fontStyle: FontStyle.italic,
+                        fontWeight: FontWeight.normal,
+                        letterSpacing: 0,
+                      ),
+                    ),
+                    WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child: Padding(
+                        padding: EdgeInsets.only(left: 4),
+                        child: Icon(
+                          Icons.auto_awesome,
+                          color: Color(0xFFF59E0B),
+                          size: 21,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                style: AppTextStyles.heading.copyWith(
+                  fontSize: 36,
+                  color: AppPalette.of(context).textPrimary,
+                ),
+              ),
+            ),
+          ),
+          if (showCount) ...[
+            const SizedBox(width: 16),
+            _ResultCount(count: count),
+          ],
+        ],
+      ),
+    ],
+  );
+}
+
+class _CatalogueSelect<T> extends StatelessWidget {
+  const _CatalogueSelect({
+    required this.tooltip,
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.options,
+    required this.onSelected,
+  });
+
+  final String tooltip, label;
+  final IconData icon;
+  final T value;
+  final List<(T, String)> options;
+  final ValueChanged<T> onSelected;
+
+  @override
+  Widget build(BuildContext context) => SearchableSelect<T>(
+    label: tooltip,
+    value: value,
+    options: {for (final (value, label) in options) value: label},
+    onChanged: (value) => onSelected(value as T),
+    child: Container(
+      constraints: const BoxConstraints(minHeight: 46),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppPalette.of(context).surface,
+        border: Border.all(color: AppPalette.of(context).border),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: AppPalette.of(context).textMuted),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.label.copyWith(
+                color: AppPalette.of(context).textPrimary,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          Icon(
+            Icons.expand_more,
+            size: 14,
+            color: AppPalette.of(context).textMuted,
+          ),
+        ],
+      ),
     ),
+  );
+}
+
+class _CatalogueFilterBadge extends StatelessWidget {
+  const _CatalogueFilterBadge({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.tint,
+    required this.removeLabel,
+    required this.onRemove,
+  });
+
+  final String label, removeLabel;
+  final IconData icon;
+  final Color color, tint;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) => InputChip(
+    avatar: Icon(icon, size: 14, color: color),
+    label: Text(label, overflow: TextOverflow.ellipsis),
+    labelStyle: AppTextStyles.caption.copyWith(
+      color: color,
+      fontWeight: FontWeight.w700,
+    ),
+    deleteIcon: Icon(Icons.close, color: color, size: 14),
+    deleteButtonTooltipMessage: removeLabel,
+    onDeleted: onRemove,
+    backgroundColor: tint,
+    side: BorderSide(color: color.withValues(alpha: .18)),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
   );
 }
 
@@ -237,60 +527,58 @@ class _ResultCount extends StatelessWidget {
         children: [
           TextSpan(
             text: '$count',
-            style: const TextStyle(
+            style: TextStyle(
               fontWeight: FontWeight.w800,
-              color: AppColors.navy,
+              color: AppPalette.of(context).accent,
             ),
           ),
           TextSpan(text: count == 1 ? ' course' : ' courses'),
         ],
       ),
-      style: AppTextStyles.body.copyWith(color: AppColors.textMuted),
+      style: AppTextStyles.body.copyWith(
+        color: AppPalette.of(context).textMuted,
+      ),
     );
   }
 }
 
-/// Course cards in one column on phones, two columns on wider screens.
+/// Course cards flow into additional columns as the window gets wider.
 class _CourseGrid extends StatelessWidget {
-  const _CourseGrid({required this.courses});
+  const _CourseGrid({required this.courses, required this.columns});
 
   final List<CatalogueCourse> courses;
+  final int columns;
 
   @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        const gap = AppSpacing.lg;
-        final columns = constraints.maxWidth >= AppSpacing.twoColumnBreakpoint
-            ? 2
-            : 1;
-        final cardWidth =
-            (constraints.maxWidth - gap * (columns - 1)) / columns;
-
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: [
-            for (final course in courses)
-              SizedBox(
-                width: cardWidth,
-                child: CourseCard(
-                  course: course,
-                  // push (not pushReplacement) keeps this screen underneath,
-                  // so the back button returns to the list.
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          MemberCourseScreen(courseId: course.id),
-                    ),
-                  ),
+  Widget build(BuildContext context) => Column(
+    spacing: 24,
+    children: [
+      for (var start = 0; start < courses.length; start += columns)
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: 24,
+            children: [
+              for (var index = start; index < start + columns; index++)
+                Expanded(
+                  child: index < courses.length
+                      ? _card(context, courses[index])
+                      : const SizedBox.shrink(),
                 ),
-              ),
-          ],
-        );
-      },
-    );
-  }
+            ],
+          ),
+        ),
+    ],
+  );
+
+  Widget _card(BuildContext context, CatalogueCourse course) => CourseCard(
+    course: course,
+    onTap: () => Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MemberCourseScreen(courseId: course.id),
+      ),
+    ),
+  );
 }
 
 /// Shown when the search and filters match nothing.
@@ -302,10 +590,23 @@ class _NoResults extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxxl),
+      padding: const EdgeInsets.symmetric(vertical: 64),
       child: Column(
         children: [
-          const Text('🔍', style: TextStyle(fontSize: 36)),
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: AppPalette.of(context).surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppPalette.of(context).border),
+            ),
+            child: Icon(
+              Icons.search,
+              size: 28,
+              color: AppPalette.of(context).accent,
+            ),
+          ),
           const SizedBox(height: AppSpacing.md),
           const Text('No courses found', style: AppTextStyles.title),
           const SizedBox(height: AppSpacing.xs),
@@ -314,7 +615,7 @@ class _NoResults extends StatelessWidget {
             style: AppTextStyles.body,
           ),
           const SizedBox(height: AppSpacing.md),
-          TextButton(
+          FilledButton(
             onPressed: onClear,
             child: const Text('Clear search & filters'),
           ),

@@ -9,11 +9,12 @@ class CatalogueCourse {
     required this.videos,
     this.qualification,
     this.addedOn,
+    this.updatedOn,
   });
   final int id, sections, chapters, videos;
   final String name, description;
   final String? qualification;
-  final DateTime? addedOn;
+  final DateTime? addedOn, updatedOn;
   factory CatalogueCourse.fromJson(Map<String, dynamic> json) =>
       CatalogueCourse(
         id: json['id'] as int,
@@ -24,6 +25,7 @@ class CatalogueCourse {
         chapters: json['chapters_count'] as int,
         videos: json['videos_count'] as int,
         addedOn: DateTime.tryParse(json['created_at'] as String? ?? ''),
+        updatedOn: DateTime.tryParse(json['updated_at'] as String? ?? ''),
       );
 }
 

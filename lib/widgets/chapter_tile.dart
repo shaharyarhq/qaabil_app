@@ -38,8 +38,8 @@ class ChapterTile extends StatelessWidget {
         collapsedShape: noBorder,
         // Make the objective boxes fill the card's width (default: centered).
         expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
-        iconColor: AppColors.navy,
-        collapsedIconColor: AppColors.textMuted,
+        iconColor: AppPalette.of(context).accent,
+        collapsedIconColor: AppPalette.of(context).textMuted,
         tilePadding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.lg,
           vertical: AppSpacing.xs,
@@ -87,9 +87,9 @@ class _ObjectiveRow extends StatelessWidget {
       margin: const EdgeInsets.only(top: AppSpacing.md),
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.background,
+        color: AppPalette.of(context).background,
         borderRadius: AppRadius.button,
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: AppPalette.of(context).border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,7 +99,7 @@ class _ObjectiveRow extends StatelessWidget {
               children: [
                 TextSpan(
                   text: '${objective.code}  ',
-                  style: const TextStyle(color: AppColors.amberText),
+                  style: TextStyle(color: AppPalette.of(context).amberText),
                 ),
                 TextSpan(text: objective.title),
               ],
@@ -117,8 +117,8 @@ class _ObjectiveRow extends StatelessWidget {
                 label: const Text('Notes'),
                 style: OutlinedButton.styleFrom(
                   minimumSize: smallButton,
-                  foregroundColor: AppColors.navy,
-                  side: const BorderSide(color: AppColors.border),
+                  foregroundColor: AppPalette.of(context).accent,
+                  side: BorderSide(color: AppPalette.of(context).border),
                   shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
                 ),
               ),

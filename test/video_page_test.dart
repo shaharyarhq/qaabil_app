@@ -47,6 +47,13 @@ Map<String, dynamic> _details({bool materials = false}) => {
             'size': 2048,
             'kind': 'quiz_attachments',
           },
+          {
+            'id': 0,
+            'name': 'objective.pdf',
+            'mime': 'application/pdf',
+            'size': 1024,
+            'kind': 'objective_notes',
+          },
         ]
       : [],
   'quiz_url': materials ? 'https://qaabil.io/practice/example' : null,
@@ -88,8 +95,10 @@ Future<MemberSession> _open(
   WidgetTester tester,
   Future<http.Response> Function(http.Request) handler, {
   bool materials = false,
+  Size size = const Size(390, 1400),
+  TextScaler textScaler = TextScaler.noScaling,
 }) async {
-  tester.view.physicalSize = const Size(390, 1400);
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   final api = MemberApi(
@@ -124,7 +133,13 @@ Future<MemberSession> _open(
   await tester.pumpWidget(
     SessionScope(
       session: session,
-      child: const MaterialApp(home: LessonVideoScreen(videoId: 8)),
+      child: MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+          child: child!,
+        ),
+        home: const LessonVideoScreen(videoId: 8),
+      ),
     ),
   );
   await tester.pumpAndSettle();
@@ -137,21 +152,58 @@ Future<MemberSession> _open(
 }
 
 Future<void> _tab(WidgetTester tester, String label) async {
-  final tab = find.widgetWithText(ChoiceChip, label);
+  final tab = find.widgetWithText(TextButton, label);
   await tester.ensureVisible(tab);
+  await tester.pumpAndSettle();
   await tester.tap(tab);
   await tester.pumpAndSettle();
 }
 
 void main() {
   testWidgets(
+    'Lesson tabs scroll on a small phone and related videos sit beside the player on a wide display',
+    (tester) async {
+      await _open(
+        tester,
+        (_) async => _json(_reviews()),
+        materials: true,
+        size: const Size(320, 640),
+        textScaler: const TextScaler.linear(1.5),
+      );
+      await _tab(tester, 'Materials');
+      expect(find.text('real.pdf'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      tester.view.physicalSize = const Size(1280, 800);
+      await tester.pumpAndSettle();
+      final title = tester.getRect(find.text('Actual video'));
+      final related = tester.getRect(find.text('MORE FROM THIS OBJECTIVE'));
+      final materials = tester.getRect(find.text('Learning materials'));
+      expect(related.left, greaterThan(title.right));
+      expect(materials.left, lessThan(related.left));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'Overview shows real context and related submissions; tabs preserve the player',
     (tester) async {
       await _open(tester, (_) async => _json(_reviews()));
-      expect(find.widgetWithText(ChoiceChip, 'Materials'), findsNothing);
+      expect(find.text('VIDEO LESSON'), findsNothing);
+      expect(
+        tester.getTopLeft(find.text('Actual video')).dy,
+        greaterThan(
+          tester
+              .getBottomLeft(
+                find.text('Playback is not available in this build yet.'),
+              )
+              .dy,
+        ),
+      );
+      expect(find.widgetWithText(TextButton, 'Materials'), findsNothing);
       expect(find.text('Existing lesson description'), findsOneWidget);
-      expect(find.text('Approved by: Reviewer name'), findsOneWidget);
-      expect(find.text('Chapter: Real Chapter'), findsOneWidget);
+      expect(find.text('Reviewer name'), findsOneWidget);
+      expect(find.text('Real Chapter'), findsNWidgets(2));
       expect(find.text('Related approved lesson'), findsOneWidget);
       await _tab(tester, 'Reviews');
       expect(
@@ -238,6 +290,7 @@ void main() {
       await tester.tap(find.text('Retry reviews'));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('Load more reviews'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Load more reviews'));
       await tester.pumpAndSettle();
       expect(find.text('Existing web review'), findsNWidgets(2));
@@ -252,10 +305,16 @@ void main() {
       await _open(tester, (_) async => _json(_reviews()), materials: true);
       await _tab(tester, 'Materials');
       expect(find.text('real.pdf'), findsOneWidget);
-      expect(find.text('notes.png'), findsOneWidget);
+      expect(find.text('notes.png'), findsNothing);
       expect(find.text('Learning material · 1 KB'), findsOneWidget);
+      await _tab(tester, 'Video notes');
+      expect(find.text('real.pdf'), findsNothing);
+      expect(find.text('notes.png'), findsOneWidget);
       expect(find.text('Video notes · 2 KB'), findsOneWidget);
-      expect(find.text('Open quiz'), findsOneWidget);
+      expect(find.text('Take the quiz'), findsOneWidget);
+      await _tab(tester, 'Objective');
+      expect(find.text('objective.pdf'), findsOneWidget);
+      expect(find.text('Take the quiz'), findsNothing);
     },
   );
 
@@ -264,7 +323,7 @@ void main() {
     (tester) async {
       final pending = Completer<http.Response>();
       final session = await _open(tester, (_) => pending.future);
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Reviews'));
+      await tester.tap(find.widgetWithText(TextButton, 'Reviews'));
       await tester.pump();
       await session.logout();
       await tester.pumpAndSettle();

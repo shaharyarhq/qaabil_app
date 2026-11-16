@@ -40,6 +40,9 @@ dependencies:
   open_filex: ^5.0.0
   path_provider: ^2.1.6
   url_launcher: ^6.3.2
+  file_selector: ^1.1.0
+  webview_flutter: ^4.14.1
+  video_player: ^2.11.1
 
 dev_dependencies:
   integration_test:
@@ -84,6 +87,7 @@ flutter:
           weight: 800
     - family: InstrumentSerif
       fonts:
+        - asset: assets/fonts/InstrumentSerif-Regular.ttf
         - asset: assets/fonts/InstrumentSerif-Italic.ttf
           style: italic
 

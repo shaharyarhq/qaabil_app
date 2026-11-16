@@ -27,10 +27,8 @@ class CourseDetailScreen extends StatelessWidget {
       // was opened with Navigator.push.
       appBar: const QaabilAppBar(),
       body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            maxWidth: AppSpacing.contentMaxWidth,
-          ),
+        child: SizedBox(
+          width: double.infinity,
           child: ListView(
             padding: const EdgeInsets.all(AppSpacing.screen),
             children: [
@@ -40,7 +38,9 @@ class CourseDetailScreen extends StatelessWidget {
               const SizedBox(height: AppSpacing.xs),
               Text(
                 course.qualification.label,
-                style: AppTextStyles.label.copyWith(color: AppColors.navy),
+                style: AppTextStyles.label.copyWith(
+                  color: AppPalette.of(context).accent,
+                ),
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(course.description, style: AppTextStyles.body),
@@ -101,7 +101,7 @@ class _Breadcrumb extends StatelessWidget {
           ),
           TextSpan(
             text: courseTitle,
-            style: const TextStyle(color: AppColors.navy),
+            style: TextStyle(color: AppPalette.of(context).accent),
           ),
         ],
       ),
@@ -141,7 +141,7 @@ class _StatsRow extends StatelessWidget {
                   Text(
                     '${entry.value}',
                     style: AppTextStyles.cardTitle.copyWith(
-                      color: AppColors.navy,
+                      color: AppPalette.of(context).accent,
                     ),
                   ),
                   Text(
@@ -174,7 +174,7 @@ class _SectionHeading extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            color: AppColors.amberTint,
+            color: AppPalette.of(context).amberTint,
             borderRadius: BorderRadius.circular(6),
           ),
           child: Text('SECTION $number', style: AppTextStyles.pill),

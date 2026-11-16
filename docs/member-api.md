@@ -15,8 +15,9 @@ applied to the local DDEV database; no existing user records were changed.
 | POST /api/v1/member/login | email, password, device_name | token, expires_at, user |
 | GET /api/v1/member/me | Authorization: Bearer token | user |
 | POST /api/v1/member/logout | Authorization: Bearer token | message |
-| GET /api/v1/member/courses?page=1 | Authorization: Bearer token | data, pagination meta |
-| GET /api/v1/member/courses/{id} | Authorization: Bearer token | data: course content and own progress |
+| GET /api/v1/member/courses?page=1 | Authorization: Bearer token | Started courses and member progress with pagination. Optional `search` filters course names before pagination. |
+| GET /api/v1/member/courses/{id} | Authorization: Bearer token | data: course content, course dates (`created_at` and `updated_at`), and own progress |
+| GET /api/v1/member/courses/{id}/report | Authorization: Bearer token | PDF course progress report shared with the website |
 
 Tokens have the `member` ability and expire after 30 days. Login is limited to
 five requests per minute per IP; authenticated routes use a 60/minute limit.
@@ -115,13 +116,19 @@ verification. No real member credentials were used during implementation.
   learning_progress.dart; backend MemberLearningController, EnsureMemberToken and
   CourseProgressService. No new dependencies or database migrations for this slice.
 
+### Objective quizzes from Course content
+
+- The authenticated course detail adds a relative `quiz_path` for sections, chapters, and objectives with a configured quiz and at least one question in their own pool. The app opens the existing member quiz on the API server's origin in the device browser, using the website sign-in.
+- The existing Laravel quiz grades the attempt and writes objective progress. Flutter reloads the course on return. Pull to refresh in Course content or My Learning to fetch current progress manually.
+- The local Excel objective **SUM, AVERAGE, COUNT** has one practice question in quiz 61.
+
 ## Objective videos and notes — 2026-11-02
 
 Member flow: My Learning → Open course → expand chapter → Videos & notes.
 
 | Endpoint | Purpose |
 |---|---|
-| GET /api/v1/member/objectives/{id}/resources | Approved video metadata and supported objective-note metadata |
+| GET /api/v1/member/objectives/{id}/resources | Objective description and course/chapter context, approved video metadata including `focus`, `submitted_at`, nullable `average_rating` and `review_count`, and supported objective-note metadata |
 | GET /api/v1/member/videos/{id} | Recheck publication and return playback state/YouTube ID |
 | GET /api/v1/member/objectives/{id}/notes/{index} | Authenticated document download |
 
@@ -288,6 +295,41 @@ Waydroid playback test passed with timeline advancement, pause and recovery from
 an invalid source. The normal app is built with the local API_BASE_URL. This
 follow-up did not repeat iOS testing or real document opening. Repeated-search
 input automation remains a separate unresolved finding from the earlier run.
+
+## Member video submissions
+
+`GET /api/v1/member/submissions?page=1` mirrors the ownership scope of the
+Filament list at `/member/videos`. It returns 25 submissions per page, newest
+first, with curriculum labels, submitted date and the review status. Each row
+also includes a nullable YouTube thumbnail URL and approver display name.
+The app uses a placeholder when a thumbnail is unavailable, including sources
+without a YouTube ID. The app can submit YouTube links for review. Members can
+edit their own submissions from the same app list.
+
+`GET /api/v1/member/submissions/options` returns the website's language and
+focus choices. `POST /api/v1/member/submissions` accepts `title`,
+`objective_id`, `video_url`, `language`, `focus_of_the_video`, and optional
+`description`. Laravel derives the curriculum hierarchy from the objective
+and assigns Pending to new rows. It returns 201 with `created: true` for a new
+row or 200 with `created: false` for a matching Pending or Approved row.
+
+`GET /api/v1/member/submissions/{id}` loads the owner’s saved form fields.
+`POST /api/v1/member/submissions/{id}` updates that row. The existing video
+observer clears approval and returns changed approved videos to Pending.
+The app edits descriptions as plain text and preserves original formatting
+when the description is unchanged.
+
+`GET /api/v1/member/submissions/options` also includes `upload_max_mb` when
+Bunny Stream is configured. `POST /api/v1/member/submissions/upload` accepts
+the same metadata as link submissions plus a multipart `file` in MP4 or MOV
+format. Its local limit is 50 MB and the web server must allow the multipart
+body. The app tracks file transfer to Laravel, then displays a separate
+status while Laravel forwards the file to Bunny Stream. An owner and objective
+scoped file fingerprint prevents duplicate records on retry. Apply the
+upload fingerprint migration before enabling the endpoint. Keep the Bunny
+library key in Laravel configuration. Approved Bunny lessons return a
+`bunny_embed_url` from the member video endpoint.
+
 
 ## Member video-page functionality — 2026-11-07
 

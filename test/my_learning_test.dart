@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -72,7 +73,7 @@ Future<MemberSession> _open(
       }
       if (request.url.path.endsWith('/me')) return _json({'user': _user});
       if (request.url.path.endsWith('/logout')) return _json({});
-      expect(request.headers['Authorization'], 'Bearer token');
+      expectSync(request.headers['Authorization'], 'Bearer token');
       return respond(request);
     }),
   );
@@ -90,11 +91,244 @@ Future<MemberSession> _open(
   return session;
 }
 
+Finder _statusMarker(String status) => find.byWidgetPredicate(
+  (widget) => widget is Semantics && widget.properties.label == status,
+);
+
 void main() {
   testWidgets(
-    'Real course progress opens its own course content with saved statuses',
+    'Member overview shows real dates, progress and course structure',
     (tester) async {
       await _open(tester, (request) async {
+        if (!request.url.path.endsWith('/courses/41')) return _json(_page());
+        return _json({
+          'data': {
+            ..._course(),
+            'created_at': '2026-01-12T12:00:00Z',
+            'updated_at': '2026-02-15T12:00:00Z',
+            'sections': [
+              {
+                'id': 1,
+                'name': 'Accounting essentials',
+                'chapters': [
+                  {
+                    'id': 2,
+                    'name': 'Double entry',
+                    'objectives': [
+                      {
+                        'id': 3,
+                        'name': 'Prepare a ledger',
+                        'status': 'mastery',
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        });
+      });
+      await tester.tap(find.text('Overview'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Appearance'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Dark'));
+      await tester.pumpAndSettle();
+      final overviewTitle = find.text('View Real Accounting');
+      expect(
+        Theme.of(tester.element(overviewTitle)).brightness,
+        Brightness.dark,
+      );
+      await tester.tap(find.byTooltip('Appearance'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Light'));
+      await tester.pumpAndSettle();
+      expect(
+        Theme.of(tester.element(overviewTitle)).brightness,
+        Brightness.light,
+      );
+      expect(find.text('Created'), findsOneWidget);
+      expect(find.text('Last updated'), findsOneWidget);
+      expect(find.text('Unavailable'), findsNothing);
+      expect(find.text('View Real Accounting'), findsOneWidget);
+      expect(find.text('Download Report'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('3 of 5 objectives marked'),
+        250,
+      );
+      expect(find.text('3 of 5 objectives marked'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Learning Objectives — RAG'),
+        250,
+      );
+      final mastery = find.widgetWithText(TextButton, 'Mastery Reached');
+      await tester.ensureVisible(mastery);
+      await tester.pumpAndSettle();
+      await tester.tap(mastery);
+      await tester.pumpAndSettle();
+      expect(find.text('Marked'), findsNothing);
+      await tester.tap(mastery);
+      await tester.pumpAndSettle();
+      expect(find.text('Marked'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Double entry'), 250);
+      await tester.tap(find.text('Double entry'));
+      await tester.pumpAndSettle();
+      expect(find.text('Prepare a ledger'), findsOneWidget);
+
+      tester.view.physicalSize = const Size(1100, 900);
+      await tester.pumpAndSettle();
+      final summary = find.text('My Progress');
+      await tester.scrollUntilVisible(summary, -250);
+      final chart = find.text('Learning Objectives — RAG');
+      await tester.scrollUntilVisible(chart, 200);
+      expect(
+        tester.getTopLeft(chart).dy,
+        greaterThan(tester.getTopLeft(summary).dy),
+      );
+      expect(tester.getTopLeft(chart).dx, tester.getTopLeft(summary).dx);
+      final openContent = find.text('Open course content');
+      await tester.scrollUntilVisible(openContent, 250);
+      await tester.tap(openContent);
+      await tester.pumpAndSettle();
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Appearance'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'An objective quiz opens the member site and refreshes progress on return',
+    (tester) async {
+      const launcher = MethodChannel('plugins.flutter.io/url_launcher');
+      final messenger = tester.binding.defaultBinaryMessenger;
+      final launches = <MethodCall>[];
+      messenger.setMockMethodCallHandler(launcher, (call) async {
+        launches.add(call);
+        return true;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(launcher, null));
+      var graded = false;
+      var courseRequests = 0;
+      await _open(tester, (request) async {
+        if (request.url.path.endsWith('/courses/41')) {
+          courseRequests++;
+          return _json({
+            'data': {
+              ..._course(),
+              'progress': {..._progress, 'mastery_percent': graded ? 40 : 20},
+              'sections': [
+                {
+                  'id': 1,
+                  'name': 'Section',
+                  'chapters': [
+                    {
+                      'id': 2,
+                      'name': 'Quiz chapter',
+                      'objectives': [
+                        {
+                          'id': 3,
+                          'name': 'Quiz objective',
+                          'status': graded ? 'mastery' : 'practice',
+                          'quiz_path': '/member/quiz/61/take',
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          });
+        }
+        if (request.url.path.endsWith('/objectives/3/resources')) {
+          return _json({
+            'data': {
+              'objective': {'name': 'Quiz objective'},
+              'videos': [],
+              'notes': [],
+            },
+          });
+        }
+        return _json(
+          _page(
+            courses: [
+              {
+                ..._course(),
+                'progress': {..._progress, 'mastery_percent': graded ? 40 : 20},
+              },
+            ],
+          ),
+        );
+      });
+      await tester.tap(find.text('Open course'));
+      await tester.pumpAndSettle();
+      expect(_statusMarker('Practice'), findsOneWidget);
+      final quiz = find.text('Take Quiz');
+      await tester.ensureVisible(quiz);
+      await tester.pumpAndSettle();
+      await tester.tap(quiz);
+      await tester.pumpAndSettle();
+      expect(launches.single.method, 'launch');
+      expect(
+        launches.single.arguments['url'],
+        'https://example.test/member/quiz/61/take',
+      );
+
+      graded = true;
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(courseRequests, 2);
+      expect(_statusMarker('Mastery'), findsOneWidget);
+      expect(find.textContaining('40% mastered'), findsOneWidget);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.text('Real Accounting'), findsOneWidget);
+      expect(find.textContaining('40% mastered'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Opening a chapter shows rated video cards alongside objective progress',
+    (tester) async {
+      var previewRequests = 0;
+      await _open(tester, (request) async {
+        if (request.url.path.endsWith('/objectives/3/resources')) {
+          previewRequests++;
+          return _json({
+            'data': {
+              'objective': {'name': 'Explain accounting'},
+              'videos': [
+                {
+                  'id': 7,
+                  'title': 'Accounting introduction',
+                  'average_rating': 4.5,
+                  'review_count': 2,
+                },
+                {'id': 8, 'title': 'Worked accounting example'},
+              ],
+              'notes': [],
+            },
+          });
+        }
+        if (request.url.path.endsWith('/objectives/4/resources')) {
+          return _json({
+            'data': {
+              'objective': {'name': 'Prepare a statement'},
+              'videos': [],
+              'notes': [],
+            },
+          });
+        }
+        if (request.url.path.endsWith('/videos/8')) {
+          return _json({
+            'data': {
+              'title': 'Worked accounting example',
+              'access': {'allowed': false, 'reason': 'playback_setup_pending'},
+            },
+          });
+        }
         if (request.url.path.endsWith('/courses/41')) {
           return _json({
             'data': {
@@ -134,12 +368,40 @@ void main() {
       await tester.tap(find.text('Open course'));
       await tester.pumpAndSettle();
       expect(find.text('Actual section'), findsOneWidget);
-      await tester.ensureVisible(find.text('Actual chapter'));
-      await tester.tap(find.text('Actual chapter'));
+      expect(previewRequests, 1);
+      await tester.ensureVisible(find.text('Actual section'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Actual section'));
+      await tester.pumpAndSettle();
+      expect(find.text('Explain accounting'), findsNothing);
+      final jump = find.text('Jump to section or chapter…');
+      await tester.ensureVisible(jump);
+      await tester.pumpAndSettle();
+      await tester.tap(jump);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, 'Explain accounting');
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ListTile, 'Explain accounting'));
       await tester.pumpAndSettle();
       expect(find.text('Explain accounting'), findsOneWidget);
-      expect(find.text('Practice'), findsOneWidget);
-      expect(find.text('Not started'), findsOneWidget);
+      expect(_statusMarker('Practice'), findsOneWidget);
+      expect(_statusMarker('Not started'), findsOneWidget);
+      expect(previewRequests, 2);
+      expect(find.text('4.5 (2)'), findsOneWidget);
+      await tester.ensureVisible(find.byTooltip('Next videos'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Next videos'));
+      await tester.pumpAndSettle();
+      final video = find.text('Worked accounting example');
+      await tester.ensureVisible(video);
+      await tester.pumpAndSettle();
+      expect(find.text('No ratings yet'), findsOneWidget);
+      await tester.tap(video);
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Playback is not available in this build yet.'),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull);
     },
   );
@@ -160,7 +422,14 @@ void main() {
       await _open(tester, (request) async {
         calls++;
         if (calls == 1) return _json({}, 503);
-        if (request.url.queryParameters['page'] == '2') {
+        final query = request.url.queryParameters;
+        if (query['search'] == 'economics') {
+          expect(query['page'], '1');
+          return _json(
+            _page(courses: [_course(id: 42, name: 'Real Economics')]),
+          );
+        }
+        if (query['page'] == '2') {
           return _json(
             _page(
               courses: [_course(id: 42, name: 'Real Economics')],
@@ -185,6 +454,15 @@ void main() {
       expect(find.text('Real Economics'), findsOneWidget);
       expect(find.text('Load more courses'), findsNothing);
       expect(calls, 3);
+
+      final search = find.widgetWithText(TextField, 'Search my courses…');
+      await tester.ensureVisible(search);
+      await tester.enterText(search, 'economics');
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+      expect(find.text('Real Economics'), findsOneWidget);
+      expect(find.text('Real Accounting'), findsNothing);
+      expect(calls, 4);
     },
   );
 

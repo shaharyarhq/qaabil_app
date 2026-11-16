@@ -3,26 +3,46 @@ class VideoSubmission {
     required this.id,
     required this.title,
     required this.status,
-    required this.contextLabels,
+    this.course,
+    this.section,
+    this.chapter,
+    this.objective,
+    this.thumbnail,
+    this.approvedBy,
     this.submittedAt,
+    this.courseId,
+    this.objectiveId,
+    this.videoUrl,
+    this.description,
+    this.language,
+    this.focus,
   });
 
   final int id;
   final String title;
   final String? status;
-  final List<String> contextLabels;
+  final String? course, section, chapter, objective, thumbnail, approvedBy;
   final DateTime? submittedAt;
+  final int? courseId, objectiveId;
+  final String? videoUrl, description, language, focus;
 
   factory VideoSubmission.fromJson(Map<String, dynamic> json) =>
       VideoSubmission(
         id: json['id'] as int,
         title: json['title'] as String,
         status: json['status'] as String?,
-        contextLabels: [
-          for (final field in ['course', 'section', 'chapter', 'objective'])
-            if (json[field] case final String name when name.trim().isNotEmpty)
-              name,
-        ],
+        course: json['course'] as String?,
+        section: json['section'] as String?,
+        chapter: json['chapter'] as String?,
+        objective: json['objective'] as String?,
+        thumbnail: json['thumbnail'] as String?,
+        approvedBy: json['approved_by'] as String?,
+        courseId: json['course_id'] as int?,
+        objectiveId: json['objective_id'] as int?,
+        videoUrl: json['video_url'] as String?,
+        description: json['description'] as String?,
+        language: json['language'] as String?,
+        focus: json['focus_of_the_video'] as String?,
         submittedAt: DateTime.tryParse(json['submitted_at'] as String? ?? ''),
       );
 }
