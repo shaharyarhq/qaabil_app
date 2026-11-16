@@ -52,6 +52,8 @@ Use the DDEV backend and confirm its mapped HTTP port with `docker port ddev-qaa
 
 ## Next task
 
+Deploy the matching Laravel changes before sharing the Android release preview for a member walkthrough. The preview targets `https://qaabil.io/api/v1`. The live catalogue and sampled course details responded on 2026-11-16. The live submission options endpoint returned 404. Apply the upload fingerprint migration and verify production member login, submissions, and Bunny configuration after deployment.
+
 Verified Bunny upload end to end on the local development setup. **Qaabil E2E MP4** (video 18) was submitted from Waydroid, appeared as Pending in the app and moderator query, reached 100% encoding, passed the normal moderator approval action, and played from the Excel course in Waydroid. A 720p control clip (video 19) remains Pending. Notify the account owner before attempting to fix Waydroid system errors.
 
 Verify a changed Profile value against the signed-in website. The account owner already verified video title edits.
