@@ -174,6 +174,24 @@ void main() {
       await tester.tap(find.text('Double entry'));
       await tester.pumpAndSettle();
       expect(find.text('Prepare a ledger'), findsOneWidget);
+      final chapter = find.byKey(const PageStorageKey('overview-chapter-2'));
+      final status = find.descendant(
+        of: chapter,
+        matching: find.text('Mastery'),
+      );
+      final statusIcon = find.descendant(
+        of: chapter,
+        matching: find.byIcon(Icons.check_circle_outline),
+      );
+      expect(statusIcon, findsOneWidget);
+      expect(
+        tester.getTopRight(status).dx,
+        greaterThan(tester.getTopRight(chapter).dx - 24),
+      );
+      expect(
+        tester.getTopLeft(statusIcon).dx,
+        lessThan(tester.getTopLeft(find.text('Prepare a ledger')).dx),
+      );
 
       tester.view.physicalSize = const Size(1100, 900);
       await tester.pumpAndSettle();

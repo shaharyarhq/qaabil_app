@@ -26,7 +26,7 @@ class CourseCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: hasDescription ? 250 : 180),
+          constraints: const BoxConstraints(minHeight: 320),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

@@ -52,7 +52,7 @@ Use the DDEV backend and confirm its mapped HTTP port with `docker port ddev-qaa
 
 ## Next task
 
-The Android preview pass tightened catalogue cards, simplified navigation, improved form contrast, and tested guest sign-in at 200% text size. Login and Profile link to privacy, terms, and support. Profile links to a website account-deletion request, which support handles manually. Video and review posting prompts for agreement to content rules. Signed-in members can report videos or reviews to Qaabil support, block their authors across mobile lesson and review endpoints, and unblock authors from Profile.
+The Android preview pass simplified navigation, improved form contrast, and tested guest sign-in at 200% text size. Catalogue cards use their previous 320 dp minimum height. My Learning’s Course Structure has vertical gaps between sections and chapters. Objective rows follow the website with a status icon before the title and the status badge on the right. Login and Profile link to privacy, terms, and support. Profile links to a website account-deletion request, which support handles manually. Video and review posting prompts for agreement to content rules. Signed-in members can report videos or reviews to Qaabil support, block their authors across mobile lesson and review endpoints, and unblock authors from Profile.
 
 Deploy Laravel and apply both November 17 migrations for Bunny ownership tracking and author blocking. Before sharing the updated APK, verify live login, report delivery to the actual support inbox, author blocking, and video cleanup on qaabil.io. For store review, confirm the account-deletion process, moderation coverage and response, Play Data safety, App Store privacy disclosures, and iOS behavior.
 

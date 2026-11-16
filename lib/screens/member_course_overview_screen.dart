@@ -8,6 +8,7 @@ import '../auth/member_session.dart';
 import '../models/member_course.dart';
 import '../services/member_api.dart';
 import '../theme/app_text_styles.dart';
+import '../theme/app_tokens.dart';
 import '../theme/app_appearance.dart';
 import '../utils/formatters.dart';
 import 'login_screen.dart';
@@ -310,6 +311,7 @@ class _MemberCourseOverviewScreenState
                 child: course.sections.isEmpty
                     ? Text('No sections yet.', style: palette.caption)
                     : Column(
+                        spacing: AppSpacing.md,
                         children: [
                           for (final (index, section)
                               in course.sections.indexed)
@@ -332,68 +334,49 @@ class _MemberCourseOverviewScreenState
                                 pluralize(section.chapters.length, 'chapter'),
                                 style: palette.caption,
                               ),
-                              childrenPadding: const EdgeInsets.fromLTRB(
-                                12,
-                                0,
-                                12,
-                                12,
+                              childrenPadding: const EdgeInsets.all(
+                                AppSpacing.md,
                               ),
                               children: [
-                                for (final (chapterIndex, chapter)
-                                    in section.chapters.indexed)
-                                  ExpansionTile(
-                                    key: PageStorageKey(
-                                      'overview-chapter-${chapter.id}',
-                                    ),
-                                    shape: palette.outline,
-                                    collapsedShape: palette.outline,
-                                    tilePadding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                    ),
-                                    leading: _StatusBadge(
-                                      '${chapterIndex + 1}',
-                                      color: palette.muted,
-                                    ),
-                                    title: Text(
-                                      chapter.name,
-                                      style: palette.label,
-                                    ),
-                                    subtitle: Text(
-                                      pluralize(
-                                        chapter.objectives.length,
-                                        'objective',
-                                      ),
-                                      style: palette.caption,
-                                    ),
-                                    children: [
-                                      for (final objective
-                                          in chapter.objectives)
-                                        ListTile(
-                                          dense: true,
-                                          contentPadding:
-                                              const EdgeInsets.symmetric(
-                                                horizontal: 12,
-                                              ),
-                                          leading: Icon(
-                                            Icons.circle,
-                                            size: 12,
-                                            color: _statusColor(
-                                              objective.status,
-                                            ),
-                                          ),
-                                          title: Text(objective.name),
-                                          subtitle: Align(
-                                            alignment: Alignment.centerLeft,
-                                            child: _StatusBadge(
-                                              objective.statusLabel,
-                                              color: _statusColor(
-                                                objective.status,
-                                              ),
-                                            ),
-                                          ),
+                                Column(
+                                  spacing: AppSpacing.sm,
+                                  children: [
+                                    for (final (chapterIndex, chapter)
+                                        in section.chapters.indexed)
+                                      ExpansionTile(
+                                        key: PageStorageKey(
+                                          'overview-chapter-${chapter.id}',
                                         ),
-                                    ],
-                                  ),
+                                        shape: palette.outline,
+                                        collapsedShape: palette.outline,
+                                        tilePadding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                        ),
+                                        leading: _StatusBadge(
+                                          '${chapterIndex + 1}',
+                                          color: palette.muted,
+                                        ),
+                                        title: Text(
+                                          chapter.name,
+                                          style: palette.label,
+                                        ),
+                                        subtitle: Text(
+                                          pluralize(
+                                            chapter.objectives.length,
+                                            'objective',
+                                          ),
+                                          style: palette.caption,
+                                        ),
+                                        children: [
+                                          for (final objective
+                                              in chapter.objectives)
+                                            _ObjectiveStatusRow(
+                                              objective: objective,
+                                            ),
+                                        ],
+                                      ),
+                                  ],
+                                ),
                               ],
                             ),
                         ],
@@ -563,6 +546,51 @@ class _CourseFact extends StatelessWidget {
             ],
           ),
       ],
+    );
+  }
+}
+
+class _ObjectiveStatusRow extends StatelessWidget {
+  const _ObjectiveStatusRow({required this.objective});
+
+  final OutlineObjective objective;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = _OverviewPalette.of(context);
+    final color = _statusColor(objective.status);
+    final (label, icon) = switch (objective.status) {
+      'behind' => ('Falling Behind', Icons.trending_down),
+      'practice' => ('Need Practice', Icons.sync),
+      'mastery' => ('Mastery', Icons.check_circle_outline),
+      _ => ('Not Started', Icons.remove_circle_outline),
+    };
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      child: Row(
+        spacing: AppSpacing.sm,
+        children: [
+          Icon(
+            icon,
+            size: 20,
+            color: color == _notStarted
+                ? palette.muted
+                : Color.lerp(color, palette.ink, .30),
+          ),
+          Expanded(flex: 3, child: Text(objective.name)),
+          Expanded(
+            flex: 2,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: _StatusBadge(label, color: color),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
