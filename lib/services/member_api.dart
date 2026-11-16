@@ -94,7 +94,11 @@ class MemberApi {
               : 'Your account cannot access this member feature.',
         404 => 'This resource is no longer available.',
         422 =>
-          path == 'password/request'
+          path.endsWith('/block-author')
+              ? 'This author cannot be blocked.'
+              : path.endsWith('/report')
+              ? 'Enter a short reason for the report.'
+              : path == 'password/request'
               ? 'Enter a valid email address.'
               : path == 'password/reset'
               ? ((data['errors'] as Map?)?.containsKey('token') == true
@@ -180,7 +184,10 @@ class MemberApi {
     try {
       return (
         token: data['token'] as String,
-        member: Member.fromJson(data['user'] as Map<String, dynamic>),
+        member: Member.fromJson(
+          data['user'] as Map<String, dynamic>,
+          origin: _baseUri(),
+        ),
       );
     } catch (_) {
       throw const ApiException(
@@ -230,9 +237,53 @@ class MemberApi {
     );
   }
 
+  Future<Member> updateAvatar(
+    String token,
+    Uint8List bytes,
+    String filename,
+  ) async {
+    final request = http.MultipartRequest('POST', _uri('me/avatar'))
+      ..headers.addAll({
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      })
+      ..files.add(
+        http.MultipartFile.fromBytes('photo', bytes, filename: filename),
+      );
+    try {
+      final response = await _client
+          .send(request)
+          .then(http.Response.fromStream)
+          .timeout(const Duration(seconds: 45));
+      if (response.statusCode == 200) {
+        return _parseProfile(jsonDecode(response.body) as Map<String, dynamic>);
+      }
+      final message = switch (response.statusCode) {
+        401 => 'Your session has expired. Please log in again.',
+        413 || 422 => 'Choose a JPEG, PNG, or WebP photo up to 5 MB.',
+        429 => 'Too many attempts. Please wait a minute and try again.',
+        _ => 'Could not update your profile photo. Please try again.',
+      };
+      throw ApiException(message, status: response.statusCode);
+    } on TimeoutException {
+      throw const ApiException('The upload timed out. Please try again.');
+    } on http.ClientException {
+      throw const ApiException(
+        'The upload connection failed. Please try again.',
+      );
+    } on FormatException {
+      throw const ApiException(
+        'The member service returned an unexpected response.',
+      );
+    }
+  }
+
   Member _parseProfile(Map<String, dynamic> data) {
     try {
-      return Member.fromJson(data['user'] as Map<String, dynamic>);
+      return Member.fromJson(
+        data['user'] as Map<String, dynamic>,
+        origin: _baseUri(),
+      );
     } catch (_) {
       throw const ApiException(
         'The member service returned an unexpected response.',
@@ -348,6 +399,10 @@ class MemberApi {
     Map<String, String> fields,
   ) async {
     await _request('submissions/$id', token: token, post: true, body: fields);
+  }
+
+  Future<void> deleteSubmission(String token, int id) async {
+    await _request('submissions/$id', token: token, delete: true);
   }
 
   Future<SubmissionPage> submissions(String token, {int page = 1}) async {
@@ -517,6 +572,52 @@ class MemberApi {
         'Could not read the video details. Please try again.',
       );
     }
+  }
+
+  Future<void> blockVideoAuthor(String token, int id, {int? reviewId}) async {
+    await _request(
+      'videos/$id/block-author',
+      token: token,
+      post: true,
+      body: {if (reviewId != null) 'review_id': '$reviewId'},
+    );
+  }
+
+  Future<List<({int id, String name})>> blockedAuthors(String token) async {
+    final response = await _request('blocked-authors', token: token);
+    try {
+      return [
+        for (final author in response['data'] as List)
+          (id: author['id'] as int, name: author['name'] as String),
+      ];
+    } catch (_) {
+      throw const ApiException(
+        'Could not read blocked authors. Please try again.',
+      );
+    }
+  }
+
+  Future<void> unblockAuthor(String token, int id) async {
+    await _request('blocked-authors/$id', token: token, delete: true);
+  }
+
+  Future<void> reportVideoContent(
+    String token,
+    int id, {
+    required int? reviewId,
+    required bool reportAuthor,
+    required String reason,
+  }) async {
+    await _request(
+      'videos/$id/report',
+      token: token,
+      post: true,
+      body: {
+        if (reviewId != null) 'review_id': '$reviewId',
+        'report_author': reportAuthor ? '1' : '0',
+        'reason': reason,
+      },
+    );
   }
 
   Future<VideoReviewPage> videoReviews(

@@ -21,9 +21,12 @@ class SearchableSelect<T> extends StatelessWidget {
     final enabled = onChanged != null && options.isNotEmpty;
     return Tooltip(
       message: label,
+      excludeFromSemantics: true,
       child: Semantics(
         button: true,
         enabled: enabled,
+        label: label,
+        value: options[value],
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
           onTap: enabled
@@ -135,14 +138,18 @@ class _SelectDialogState<T> extends State<_SelectDialog<T>> {
                 hintText: 'Search options',
                 prefixIcon: Icon(Icons.search),
               ),
+              textInputAction: TextInputAction.search,
               onChanged: (query) => setState(() => _query = query),
             ),
             const SizedBox(height: 8),
             Flexible(
               child: matches.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                      child: Text('No matching options'),
+                  ? Semantics(
+                      liveRegion: true,
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Text('No matching options'),
+                      ),
                     )
                   : ListView.builder(
                       keyboardDismissBehavior:

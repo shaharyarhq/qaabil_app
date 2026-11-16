@@ -24,6 +24,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
   int _request = 0, _page = 0, _lastPage = 1;
   bool _loading = false, _retryRefresh = true;
   String? _error;
+  bool _deleting = false;
 
   @override
   void didChangeDependencies() {
@@ -39,6 +40,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
     _lastPage = 1;
     _error = null;
     _loading = false;
+    _deleting = false;
     if (id != null) _load(refresh: true);
   }
 
@@ -94,6 +96,62 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
     await _load(refresh: true);
   }
 
+  Future<void> _confirmDelete(VideoSubmission item) async {
+    final session = _session;
+    final memberId = _memberId;
+    if (_deleting || session == null || memberId == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete submission?'),
+        content: Text(
+          'Delete “${item.title}” from Qaabil? This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted ||
+        confirmed != true ||
+        _session != session ||
+        session.member?.id != memberId) {
+      return;
+    }
+
+    setState(() => _deleting = true);
+    try {
+      await session.deleteSubmission(item.id);
+      if (!mounted || _session != session || session.member?.id != memberId) {
+        return;
+      }
+      setState(() => _items.removeWhere((video) => video.id == item.id));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Video submission deleted.')),
+      );
+      await _load(refresh: true);
+    } on ApiException catch (error) {
+      if (mounted && _session == session && session.member?.id == memberId) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } finally {
+      if (mounted && _session == session && session.member?.id == memberId) {
+        setState(() => _deleting = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final signedIn = SessionScope.of(context).member != null;
@@ -125,7 +183,7 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: FilledButton.icon(
-                      onPressed: _openSubmissionForm,
+                      onPressed: _deleting ? null : _openSubmissionForm,
                       icon: const Icon(Icons.add),
                       label: const Text('Submit video'),
                     ),
@@ -155,7 +213,12 @@ class _MySubmissionsScreenState extends State<MySubmissionsScreen> {
                           _SubmissionRow(
                             item: item,
                             wide: wide,
-                            onEdit: () => _openSubmissionForm(item.id),
+                            onEdit: _deleting
+                                ? null
+                                : () => _openSubmissionForm(item.id),
+                            onDelete: _deleting
+                                ? null
+                                : () => _confirmDelete(item),
                           ),
                         ],
                         if (_error case final error?)
@@ -273,11 +336,12 @@ class _SubmissionRow extends StatelessWidget {
     required this.item,
     required this.wide,
     required this.onEdit,
+    required this.onDelete,
   });
 
   final VideoSubmission item;
   final bool wide;
-  final VoidCallback onEdit;
+  final VoidCallback? onEdit, onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -307,7 +371,17 @@ class _SubmissionRow extends StatelessWidget {
       (label: 'Objective', value: item.objective),
     ];
     final body = AppTextStyles.body.copyWith(color: palette.textPrimary);
-    final edit = TextButton(onPressed: onEdit, child: const Text('Edit'));
+    final actions = Wrap(
+      alignment: WrapAlignment.end,
+      children: [
+        TextButton(onPressed: onEdit, child: const Text('Edit')),
+        TextButton(
+          onPressed: onDelete,
+          style: TextButton.styleFrom(foregroundColor: palette.error),
+          child: const Text('Delete'),
+        ),
+      ],
+    );
     if (wide) {
       return _TableRow(
         cells: [
@@ -316,7 +390,7 @@ class _SubmissionRow extends StatelessWidget {
           for (final detail in details) Text(detail.value ?? '—', style: body),
           Align(alignment: Alignment.centerLeft, child: status),
           Text(item.approvedBy ?? '—', style: body),
-          edit,
+          actions,
         ],
       );
     }
@@ -351,7 +425,7 @@ class _SubmissionRow extends StatelessWidget {
                   children: [TextSpan(text: value, style: body)],
                 ),
               ),
-          Align(alignment: Alignment.centerRight, child: edit),
+          Align(alignment: Alignment.centerRight, child: actions),
         ],
       ),
     );

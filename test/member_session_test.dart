@@ -34,17 +34,21 @@ const user = {
   'school': 'Test School',
 };
 
-Future<void> scrollProfile(WidgetTester tester, String label) =>
-    tester.scrollUntilVisible(
-      find.text(label),
-      180,
-      scrollable: find
-          .descendant(
-            of: find.byType(ProfileScreen),
-            matching: find.byType(Scrollable),
-          )
-          .first,
-    );
+Future<void> scrollProfile(WidgetTester tester, String label) async {
+  final target = find.text(label);
+  await tester.scrollUntilVisible(
+    target,
+    180,
+    scrollable: find
+        .descendant(
+          of: find.byType(ProfileScreen),
+          matching: find.byType(Scrollable),
+        )
+        .first,
+  );
+  await Scrollable.ensureVisible(tester.element(target), alignment: 0.5);
+  await tester.pumpAndSettle();
+}
 
 void main() {
   test(
@@ -184,13 +188,22 @@ void main() {
     expect(find.text('member@example.test'), findsOneWidget);
     expect(find.text('Test School'), findsOneWidget);
     final fields = find.byType(TextFormField);
-    await tester.ensureVisible(find.text('Update'));
+    await Scrollable.ensureVisible(
+      tester.element(find.text('Update')),
+      alignment: 0.5,
+    );
+    await tester.pumpAndSettle();
     expect(
       tester.widget<TextFormField>(fields.at(2)).controller!.text,
       'Example Member',
     );
     await tester.enterText(fields.at(2), ' Updated Member ');
     await tester.enterText(fields.last, '');
+    await Scrollable.ensureVisible(
+      tester.element(find.text('Update')),
+      alignment: 0.5,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Update'));
     await tester.pumpAndSettle();
     expect(
@@ -198,6 +211,11 @@ void main() {
       findsOneWidget,
     );
     expect(session.member!.school, 'Test School');
+    await Scrollable.ensureVisible(
+      tester.element(find.text('Update')),
+      alignment: 0.5,
+    );
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Update'));
     await tester.pumpAndSettle();
     expect(find.text('Updated Member'), findsOneWidget);
@@ -343,167 +361,183 @@ void main() {
       api.close();
     },
   );
-  testWidgets(
-    'Member submits and edits a YouTube video from their submissions',
-    (tester) async {
-      tester.view.physicalSize = const Size(500, 1200);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
+  testWidgets('Member submits, edits, and deletes a YouTube video', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(500, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
 
-      var submitted = false;
-      var edited = false;
-      final api = MemberApi(
-        baseUrl: 'https://example.test/api/v1',
-        client: MockClient((request) async {
-          final path = request.url.path;
-          if (path.endsWith('/me')) return publicJson({'user': user});
-          if (path.endsWith('/courses')) return publicJson(publicPage());
-          if (path.endsWith('/courses/18')) {
-            return publicJson({
-              'data': {
-                ...publicCourse(),
-                'sections': [
-                  {
-                    'id': 1,
-                    'name': 'Accounts',
-                    'chapters': [
-                      {
-                        'id': 2,
-                        'name': 'Introduction',
-                        'objectives': [
-                          {'id': 3, 'name': 'Explain assets'},
-                        ],
-                      },
-                    ],
-                  },
-                ],
-              },
-            });
+    var submitted = false;
+    var edited = false;
+    var deleted = false;
+    final api = MemberApi(
+      baseUrl: 'https://example.test/api/v1',
+      client: MockClient((request) async {
+        final path = request.url.path;
+        if (path.endsWith('/me')) return publicJson({'user': user});
+        if (path.endsWith('/courses')) return publicJson(publicPage());
+        if (path.endsWith('/courses/18')) {
+          return publicJson({
+            'data': {
+              ...publicCourse(),
+              'sections': [
+                {
+                  'id': 1,
+                  'name': 'Accounts',
+                  'chapters': [
+                    {
+                      'id': 2,
+                      'name': 'Introduction',
+                      'objectives': [
+                        {'id': 3, 'name': 'Explain assets'},
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          });
+        }
+        if (path.endsWith('/submissions/options')) {
+          return publicJson({
+            'languages': {'en': 'English'},
+            'focuses': {'lesson_focused': 'Lesson Focused'},
+          });
+        }
+        if (path.endsWith('/submissions/9')) {
+          expect(request.headers['Authorization'], 'Bearer test-token');
+          if (request.method == 'DELETE') {
+            deleted = true;
+            return publicJson({'deleted': true});
           }
-          if (path.endsWith('/submissions/options')) {
-            return publicJson({
-              'languages': {'en': 'English'},
-              'focuses': {'lesson_focused': 'Lesson Focused'},
-            });
-          }
-          if (path.endsWith('/submissions/9')) {
-            expect(request.headers['Authorization'], 'Bearer test-token');
-            if (request.method == 'POST') {
-              expect(request.bodyFields['title'], 'Updated assets walkthrough');
-              expect(request.bodyFields['objective_id'], '3');
-              expect(request.bodyFields['description'], 'An explanation');
-              edited = true;
-              return publicJson({'id': 9, 'status': 'pending'});
-            }
-            return publicJson({
-              'id': 9,
-              'title': 'Assets walkthrough',
-              'status': 'approved',
-              'video_url': 'https://youtu.be/eNEgvVJI_zw',
-              'course_id': 18,
-              'course': 'Backend Accounting',
-              'objective_id': 3,
-              'objective': 'Explain assets',
-              'language': 'en',
-              'focus_of_the_video': 'lesson_focused',
-              'description': 'An explanation',
-            });
-          }
-          if (path.endsWith('/submissions') && request.method == 'POST') {
-            expect(request.headers['Authorization'], 'Bearer test-token');
-            expect(request.bodyFields, {
-              'title': 'Assets walkthrough',
-              'video_url': 'https://youtu.be/eNEgvVJI_zw',
-              'objective_id': '3',
-              'language': 'en',
-              'focus_of_the_video': 'lesson_focused',
-              'description': '',
-            });
-            submitted = true;
-            return publicJson({
-              'id': 9,
-              'status': 'pending',
-              'created': true,
-            }, 201);
+          if (request.method == 'POST') {
+            expect(request.bodyFields['title'], 'Updated assets walkthrough');
+            expect(request.bodyFields['objective_id'], '3');
+            expect(request.bodyFields['description'], 'An explanation');
+            edited = true;
+            return publicJson({'id': 9, 'status': 'pending'});
           }
           return publicJson({
-            'data': [
-              if (submitted)
-                {
-                  'id': 9,
-                  'title': edited
-                      ? 'Updated assets walkthrough'
-                      : 'Assets walkthrough',
-                  'status': 'pending',
-                },
-            ],
-            'meta': {'current_page': 1, 'last_page': 1},
+            'id': 9,
+            'title': 'Assets walkthrough',
+            'status': 'approved',
+            'video_url': 'https://youtu.be/eNEgvVJI_zw',
+            'course_id': 18,
+            'course': 'Backend Accounting',
+            'objective_id': 3,
+            'objective': 'Explain assets',
+            'language': 'en',
+            'focus_of_the_video': 'lesson_focused',
+            'description': 'An explanation',
           });
-        }),
-      );
-      final session = MemberSession(
-        api: api,
-        store: MemoryTokenStore()..token = 'test-token',
-      );
-      await tester.pumpWidget(QaabilApp(session: session));
-      await tester.pumpAndSettle();
+        }
+        if (path.endsWith('/submissions') && request.method == 'POST') {
+          expect(request.headers['Authorization'], 'Bearer test-token');
+          expect(request.bodyFields, {
+            'title': 'Assets walkthrough',
+            'video_url': 'https://youtu.be/eNEgvVJI_zw',
+            'objective_id': '3',
+            'language': 'en',
+            'focus_of_the_video': 'lesson_focused',
+            'description': '',
+          });
+          submitted = true;
+          return publicJson({
+            'id': 9,
+            'status': 'pending',
+            'created': true,
+          }, 201);
+        }
+        return publicJson({
+          'data': [
+            if (submitted && !deleted)
+              {
+                'id': 9,
+                'title': edited
+                    ? 'Updated assets walkthrough'
+                    : 'Assets walkthrough',
+                'status': 'pending',
+              },
+          ],
+          'meta': {'current_page': 1, 'last_page': 1},
+        });
+      }),
+    );
+    final session = MemberSession(
+      api: api,
+      store: MemoryTokenStore()..token = 'test-token',
+    );
+    await tester.pumpWidget(QaabilApp(session: session));
+    await tester.pumpAndSettle();
 
-      Future<void> tap(Finder finder) async {
-        await tester.ensureVisible(finder);
-        await tester.tap(finder);
-        await tester.pumpAndSettle();
-      }
-
-      await tap(find.text('Profile'));
-      await scrollProfile(tester, 'My Video Submissions');
-      await tap(find.text('My Video Submissions'));
-      await tap(find.text('Submit video'));
-      await tester.enterText(
-        find.byType(TextFormField).first,
-        'Assets walkthrough',
-      );
-      await tap(find.byTooltip('Course'));
-      await tap(find.text('Backend Accounting').last);
-      await tap(find.byTooltip('Objective'));
-      final optionSearch = find.descendant(
-        of: find.byType(AlertDialog),
-        matching: find.byType(TextField),
-      );
-      await tester.enterText(optionSearch, 'missing label');
+    Future<void> tap(Finder finder) async {
+      await tester.ensureVisible(finder);
+      await tester.tap(finder);
       await tester.pumpAndSettle();
-      expect(find.text('No matching options'), findsOneWidget);
-      await tester.enterText(optionSearch, 'ASSETS explain');
-      await tester.pumpAndSettle();
-      await tap(find.textContaining('Explain assets').last);
-      await tap(find.byTooltip('Focus'));
-      await tap(find.text('Lesson Focused').last);
-      await tester.enterText(
-        find.byType(TextFormField).at(1),
-        'https://youtu.be/eNEgvVJI_zw',
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Preview video'), findsOneWidget);
-      await tap(find.text('Submit for review'));
+    }
 
-      expect(find.text('Video submitted for review.'), findsOneWidget);
-      expect(find.text('Assets walkthrough'), findsOneWidget);
-      expect(find.text('Pending'), findsOneWidget);
-      await tap(find.text('Edit'));
-      expect(find.text('Edit video'), findsOneWidget);
-      expect(find.text('An explanation'), findsOneWidget);
-      expect(find.textContaining('send it back for review'), findsOneWidget);
-      await tester.enterText(
-        find.byType(TextFormField).first,
-        'Updated assets walkthrough',
-      );
-      await tap(find.text('Save changes'));
-      expect(edited, isTrue);
-      expect(find.text('Updated assets walkthrough'), findsOneWidget);
-      expect(find.text('Pending'), findsOneWidget);
+    await tap(find.text('Profile'));
+    await scrollProfile(tester, 'My Video Submissions');
+    await tap(find.text('My Video Submissions'));
+    await tap(find.text('Submit video'));
+    await tester.enterText(
+      find.byType(TextFormField).first,
+      'Assets walkthrough',
+    );
+    await tap(find.byTooltip('Course'));
+    await tap(find.text('Backend Accounting').last);
+    await tap(find.byTooltip('Objective'));
+    final optionSearch = find.descendant(
+      of: find.byType(AlertDialog),
+      matching: find.byType(TextField),
+    );
+    await tester.enterText(optionSearch, 'missing label');
+    await tester.pumpAndSettle();
+    expect(find.text('No matching options'), findsOneWidget);
+    await tester.enterText(optionSearch, 'ASSETS explain');
+    await tester.pumpAndSettle();
+    await tap(find.textContaining('Explain assets').last);
+    await tap(find.byTooltip('Focus'));
+    await tap(find.text('Lesson Focused').last);
+    await tester.enterText(
+      find.byType(TextFormField).at(1),
+      'https://youtu.be/eNEgvVJI_zw',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Preview video'), findsOneWidget);
+    await tap(find.text('Submit for review'));
+    await tap(find.text('Agree and continue'));
 
-      await tester.pumpWidget(const SizedBox());
-      session.dispose();
-      api.close();
-    },
-  );
+    expect(find.text('Video submitted for review.'), findsOneWidget);
+    expect(find.text('Assets walkthrough'), findsOneWidget);
+    expect(find.text('Pending'), findsOneWidget);
+    await tap(find.text('Edit'));
+    expect(find.text('Edit video'), findsOneWidget);
+    expect(find.text('An explanation'), findsOneWidget);
+    expect(find.textContaining('send it back for review'), findsOneWidget);
+    await tester.enterText(
+      find.byType(TextFormField).first,
+      'Updated assets walkthrough',
+    );
+    await tap(find.text('Save changes'));
+    await tap(find.text('Agree and continue'));
+    expect(edited, isTrue);
+    expect(find.text('Updated assets walkthrough'), findsOneWidget);
+    expect(find.text('Pending'), findsOneWidget);
+
+    await tap(find.text('Delete'));
+    await tap(find.text('Cancel'));
+    expect(deleted, isFalse);
+    expect(find.text('Updated assets walkthrough'), findsOneWidget);
+
+    await tap(find.text('Delete'));
+    await tap(find.widgetWithText(TextButton, 'Delete').last);
+    expect(deleted, isTrue);
+    expect(find.text('Updated assets walkthrough'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox());
+    session.dispose();
+    api.close();
+  });
 }

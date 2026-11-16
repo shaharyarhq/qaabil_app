@@ -14,6 +14,7 @@ import '../theme/app_text_styles.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_tokens.dart';
 import '../widgets/app_card.dart';
+import '../widgets/content_rules.dart';
 import '../widgets/bunny_video.dart';
 import '../widgets/local_video_preview.dart';
 import '../widgets/qaabil_app_bar.dart';
@@ -231,6 +232,11 @@ class _SubmitVideoScreenState extends State<SubmitVideoScreen> {
     final file = _file;
     if (_uploadingFile && file == null) {
       setState(() => _submitError = 'Choose a video file first.');
+      return;
+    }
+    if (!await confirmContentRules(context) ||
+        !mounted ||
+        session.member == null) {
       return;
     }
     FocusScope.of(context).unfocus();

@@ -32,11 +32,14 @@ class AuthPageBody extends StatelessWidget {
               children: [
                 const Center(child: QaabilLogo(height: 44)),
                 const SizedBox(height: AppSpacing.lg),
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: AppTextStyles.heading.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface,
+                Semantics(
+                  header: true,
+                  child: Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.heading.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface,
+                    ),
                   ),
                 ),
                 if (description case final description?) ...[

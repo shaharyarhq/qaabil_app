@@ -36,6 +36,7 @@ class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
+      materialTapTargetSize: MaterialTapTargetSize.padded,
       colorScheme: colorScheme,
       fontFamily: AppTextStyles.sans,
       scaffoldBackgroundColor: palette.background,
@@ -84,6 +85,12 @@ class AppTheme {
         ),
       ),
 
+      dialogTheme: DialogThemeData(
+        backgroundColor: palette.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.button),
+      ),
+
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: palette.surface,
@@ -93,7 +100,8 @@ class AppTheme {
         ),
         hintStyle: AppTextStyles.body.copyWith(color: palette.textMuted),
         prefixIconColor: palette.textMuted,
-        enabledBorder: inputBorder(palette.border),
+        enabledBorder: inputBorder(palette.controlBorder),
+        disabledBorder: inputBorder(palette.border),
         focusedBorder: inputBorder(palette.accent),
         errorBorder: inputBorder(palette.error),
         focusedErrorBorder: inputBorder(palette.error),
@@ -116,7 +124,7 @@ class AppTheme {
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(64, 52),
           foregroundColor: palette.accent,
-          side: BorderSide(color: palette.border, width: 2),
+          side: BorderSide(color: palette.controlBorder),
           shape: buttonShape,
           textStyle: AppTextStyles.button,
         ),

@@ -141,11 +141,15 @@ class MemberSession extends ChangeNotifier {
     }
   }
 
-  Future<void> updateProfile(String fullName, String school) async {
+  Future<void> updateProfile(String fullName, String school) =>
+      _changeProfile((token) => api.updateProfile(token, fullName, school));
+
+  Future<void> updateAvatar(Uint8List bytes, String filename) =>
+      _changeProfile((token) => api.updateAvatar(token, bytes, filename));
+
+  Future<void> _changeProfile(Future<Member> Function(String) request) async {
     final token = _token;
-    final updated = await _authorized(
-      (token) => api.updateProfile(token, fullName, school),
-    );
+    final updated = await _authorized(request);
     if (_token == token) {
       member = updated;
       _notify();
@@ -186,6 +190,9 @@ class MemberSession extends ChangeNotifier {
 
   Future<VideoSubmission> submission(int id) =>
       _authorized((token) => api.submission(token, id));
+
+  Future<void> deleteSubmission(int id) =>
+      _authorized((token) => api.deleteSubmission(token, id));
 
   Future<void> updateSubmission(int id, Map<String, String> fields) =>
       _authorized((token) => api.updateSubmission(token, id, fields));
@@ -264,6 +271,40 @@ class MemberSession extends ChangeNotifier {
 
   Future<VideoDetails> videoDetails(int id) =>
       _authorized((token) => api.videoDetails(token, id));
+  int contentVisibilityVersion = 0;
+
+  Future<void> blockVideoAuthor(int id, {int? reviewId}) async {
+    await _authorized(
+      (token) => api.blockVideoAuthor(token, id, reviewId: reviewId),
+    );
+    contentVisibilityVersion++;
+    _notify();
+  }
+
+  Future<List<({int id, String name})>> blockedAuthors() =>
+      _authorized(api.blockedAuthors);
+
+  Future<void> unblockAuthor(int id) async {
+    await _authorized((token) => api.unblockAuthor(token, id));
+    contentVisibilityVersion++;
+    _notify();
+  }
+
+  Future<void> reportVideoContent(
+    int id, {
+    required int? reviewId,
+    required bool reportAuthor,
+    required String reason,
+  }) => _authorized(
+    (token) => api.reportVideoContent(
+      token,
+      id,
+      reviewId: reviewId,
+      reportAuthor: reportAuthor,
+      reason: reason,
+    ),
+  );
+
   Future<VideoReviewPage> videoReviews(int id, {int page = 1}) =>
       _authorized((token) => api.videoReviews(token, id, page: page));
   Future<void> submitVideoReview(int id, int rating, String text) =>

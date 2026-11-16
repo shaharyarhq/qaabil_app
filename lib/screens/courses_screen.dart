@@ -138,6 +138,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
     body: LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
+        final largeText = MediaQuery.textScalerOf(context).scale(14) > 19;
         final inset = math.max(24.0, (width - 1440) / 2 + 24);
         final search = _searchField();
         final filters = _filters();
@@ -156,9 +157,12 @@ class _CoursesScreenState extends State<CoursesScreen> {
               56,
             ),
             children: [
-              _CatalogueHeader(count: _total, showCount: width >= 720),
+              _CatalogueHeader(
+                count: _total,
+                showCount: !largeText && width >= 720,
+              ),
               const SizedBox(height: 32),
-              if (width >= 640)
+              if (!largeText && width >= 640)
                 Row(
                   children: [
                     Expanded(child: search),
@@ -196,7 +200,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
                 _NoResults(onClear: _clearSearchAndFilters),
               _CourseGrid(
                 courses: _courses,
-                columns: width >= 1024
+                columns: !largeText && width >= 1024
                     ? 4
                     : width >= 720
                     ? 2

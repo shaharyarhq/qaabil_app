@@ -14,9 +14,9 @@ class AppColors {
   static const navyTint = Color(0xFFECF2FF);
   static const textPrimary = Color(0xFF243B53);
   static const textSecondary = Color(0xFF53677F);
-  static const textMuted = Color(0xFF6C7F95);
+  static const textMuted = Color(0xFF596D85);
   static const border = Color(0xFFDDE5EF);
-  static const error = Color(0xFFD43D46);
+  static const error = Color(0xFFB32638);
   static const sky = Color(0xFF249ACB);
   static const skyTint = Color(0xFFE8F7FF);
   static const violet = Color(0xFF7251B5);
@@ -49,6 +49,8 @@ class AppPalette {
   Color get elevated =>
       dark ? const Color(0xFF233044) : const Color(0xFFF1F5F9);
   Color get border => dark ? const Color(0xFF37465B) : AppColors.border;
+  Color get controlBorder =>
+      dark ? const Color(0xFF7388A3) : const Color(0xFF7A8A9E);
   Color get textPrimary =>
       dark ? const Color(0xFFF1F5FB) : AppColors.textPrimary;
   Color get textSecondary =>

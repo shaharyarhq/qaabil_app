@@ -86,10 +86,7 @@ class _SelectedIcon extends StatelessWidget {
     decoration: BoxDecoration(
       color: AppPalette.of(context).amberTint,
       borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: AppColors.amber, width: 2),
-      boxShadow: const [
-        BoxShadow(color: AppColors.amberDark, offset: Offset(0, 2)),
-      ],
+      border: Border.all(color: AppPalette.of(context).amberText),
     ),
     child: Icon(icon, color: AppPalette.of(context).accent, size: 25),
   );

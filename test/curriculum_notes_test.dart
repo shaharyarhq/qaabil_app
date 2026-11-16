@@ -143,10 +143,16 @@ void main() {
     (tester) async {
       final paths = <String>[];
       final opened = <String>[];
-      await _open(tester, (request) async {
-        paths.add(request.url.path);
-        return http.Response('%PDF-1.4 notes', 200);
-      }, opened);
+      late Completer<void> fileOpened;
+      await _open(
+        tester,
+        (request) async {
+          paths.add(request.url.path);
+          return http.Response('%PDF-1.4 notes', 200);
+        },
+        opened,
+        onFileOpened: () => fileOpened.complete(),
+      );
       expect(find.text('Learn from the course materials.'), findsOneWidget);
       for (final name in [
         'Course notes',
@@ -157,8 +163,9 @@ void main() {
         await tester.ensureVisible(find.text(name));
         await tester.pumpAndSettle();
         await tester.runAsync(() async {
+          fileOpened = Completer<void>();
           await tester.tap(find.text(name));
-          await Future<void>.delayed(const Duration(milliseconds: 100));
+          await fileOpened.future.timeout(const Duration(seconds: 5));
         });
         await tester.pumpAndSettle();
       }

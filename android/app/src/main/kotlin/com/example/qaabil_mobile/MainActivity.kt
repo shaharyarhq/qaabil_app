@@ -15,8 +15,8 @@ import java.io.File
 import java.io.IOException
 
 class MainActivity : FlutterActivity() {
-    private var videoPickerResult: MethodChannel.Result? = null
-    private var videoSizeLimit = 0L
+    private var pickerResult: MethodChannel.Result? = null
+    private var fileSizeLimit = 0L
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -24,22 +24,25 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 val maxBytes = call.argument<Number>("maxBytes")?.toLong()
                 when {
-                    call.method != "pickVideo" -> result.notImplemented()
+                    call.method != "pickVideo" && call.method != "pickPhoto" -> result.notImplemented()
                     maxBytes == null || maxBytes <= 0 -> result.error("invalid_limit", null, null)
-                    videoPickerResult != null -> result.error("busy", null, null)
-                    else -> openVideoPicker(maxBytes, result)
+                    pickerResult != null -> result.error("busy", null, null)
+                    else -> openMediaPicker(maxBytes, call.method == "pickPhoto", result)
                 }
             }
     }
 
     @Suppress("DEPRECATION")
-    private fun openVideoPicker(maxBytes: Long, result: MethodChannel.Result) {
-        videoPickerResult = result
-        videoSizeLimit = maxBytes
+    private fun openMediaPicker(maxBytes: Long, photo: Boolean, result: MethodChannel.Result) {
+        pickerResult = result
+        fileSizeLimit = maxBytes
+        val mediaType = if (photo) "image/*" else "video/*"
+        val formats = if (photo) arrayOf("image/jpeg", "image/png", "image/webp")
+                      else arrayOf("video/mp4", "video/quicktime")
         val documentsIntent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
-            type = "video/*"
-            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("video/mp4", "video/quicktime"))
+            type = mediaType
+            putExtra(Intent.EXTRA_MIME_TYPES, formats)
             putExtra(
                 DocumentsContract.EXTRA_INITIAL_URI,
                 DocumentsContract.buildDocumentUri(
@@ -50,50 +53,50 @@ class MainActivity : FlutterActivity() {
         }
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                val photoPicker = Intent(MediaStore.ACTION_PICK_IMAGES).apply { type = "video/*" }
+                val photoPicker = Intent(MediaStore.ACTION_PICK_IMAGES).apply { type = mediaType }
                 try {
-                    startActivityForResult(photoPicker, VIDEO_REQUEST)
+                    startActivityForResult(photoPicker, MEDIA_REQUEST)
                     return
                 } catch (_: ActivityNotFoundException) {
                     // Some Android builds omit the system Photo Picker.
                 }
             }
-            startActivityForResult(documentsIntent, VIDEO_REQUEST)
+            startActivityForResult(documentsIntent, MEDIA_REQUEST)
         } catch (_: Exception) {
-            videoPickerResult = null
+            pickerResult = null
             result.error("picker_unavailable", null, null)
         }
     }
 
     @Deprecated("Handles results from startActivityForResult in FlutterActivity")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (requestCode != VIDEO_REQUEST) {
+        if (requestCode != MEDIA_REQUEST) {
             super.onActivityResult(requestCode, resultCode, data)
             return
         }
-        val result = videoPickerResult ?: return
+        val result = pickerResult ?: return
         val uri = data?.data
         if (resultCode != Activity.RESULT_OK || uri == null) {
-            videoPickerResult = null
+            pickerResult = null
             result.success(null)
             return
         }
-        val maxBytes = videoSizeLimit
-        Thread { copyVideo(uri, maxBytes, result) }.start()
+        val maxBytes = fileSizeLimit
+        Thread { copyMedia(uri, maxBytes, result) }.start()
     }
 
-    private fun copyVideo(uri: Uri, maxBytes: Long, result: MethodChannel.Result) {
+    private fun copyMedia(uri: Uri, maxBytes: Long, result: MethodChannel.Result) {
         var temporary: File? = null
         try {
             val name = contentResolver.query(
                 uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null,
             )?.use { cursor ->
                 if (cursor.moveToFirst()) cursor.getString(0) else null
-            } ?: "video.mp4"
-            val file = File.createTempFile("qaabil-video-", ".upload", cacheDir)
+            } ?: "upload"
+            val file = File.createTempFile("qaabil-media-", ".upload", cacheDir)
             temporary = file
             val input = contentResolver.openInputStream(uri)
-                ?: throw IOException("No stream for selected video")
+                ?: throw IOException("No stream for selected media")
             input.use { source ->
                 file.outputStream().use { destination ->
                     val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
@@ -102,29 +105,29 @@ class MainActivity : FlutterActivity() {
                         val read = source.read(buffer)
                         if (read < 0) break
                         written += read
-                        if (written > maxBytes) throw VideoTooLarge()
+                        if (written > maxBytes) throw FileTooLarge()
                         destination.write(buffer, 0, read)
                     }
-                    if (written == 0L) throw IOException("Empty video")
+                    if (written == 0L) throw IOException("Empty media file")
                 }
             }
             runOnUiThread {
-                videoPickerResult = null
+                pickerResult = null
                 result.success(mapOf("path" to file.path, "name" to name))
             }
         } catch (exception: Exception) {
             temporary?.delete()
-            val code = if (exception is VideoTooLarge) "file_too_large" else "file_unreadable"
+            val code = if (exception is FileTooLarge) "file_too_large" else "file_unreadable"
             runOnUiThread {
-                videoPickerResult = null
+                pickerResult = null
                 result.error(code, null, null)
             }
         }
     }
 
-    private class VideoTooLarge : IOException()
+    private class FileTooLarge : IOException()
 
     private companion object {
-        const val VIDEO_REQUEST = 4371
+        const val MEDIA_REQUEST = 4371
     }
 }

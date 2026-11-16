@@ -1,4 +1,8 @@
+import 'dart:io';
+
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../auth/member.dart';
 import '../auth/member_session.dart';
@@ -8,10 +12,10 @@ import '../theme/app_text_styles.dart';
 import '../theme/app_tokens.dart';
 import '../widgets/app_card.dart';
 import '../widgets/qaabil_app_bar.dart';
-import '../theme/app_appearance.dart';
-import '../widgets/auth_page_body.dart';
-import 'login_screen.dart';
+import 'blocked_authors_screen.dart';
+import 'member_sign_in_gate.dart';
 import 'my_submissions_screen.dart';
+import '../widgets/website_links.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key, required this.onBrowseCourses});
@@ -22,27 +26,10 @@ class ProfileScreen extends StatelessWidget {
     final session = SessionScope.of(context);
     final member = session.member;
     if (member == null) {
-      return Scaffold(
-        appBar: AppBar(actions: const [AppearanceMenu()]),
-        body: AuthPageBody(
-          title: 'My Profile',
-          description: 'Sign in to manage your personal information and see your video submissions.',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              FilledButton(
-                onPressed: () => Navigator.of(
-                  context,
-                ).push(MaterialPageRoute(builder: (_) => const LoginScreen())),
-                child: const Text('Login to your account'),
-              ),
-              TextButton(
-                onPressed: onBrowseCourses,
-                child: const Text('Browse courses'),
-              ),
-            ],
-          ),
-        ),
+      return MemberSignInGate(
+        title: 'My Profile',
+        description: 'Sign in to manage your personal information and see your video submissions.',
+        onBrowseCourses: onBrowseCourses,
       );
     }
     return Scaffold(
@@ -84,6 +71,18 @@ class ProfileScreen extends StatelessWidget {
                   const Divider(),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.block),
+                    title: const Text('Blocked authors'),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const BlockedAuthorsScreen(),
+                      ),
+                    ),
+                  ),
+                  const Divider(),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.logout_rounded),
                     title: Text(session.busy ? 'Signing out…' : 'Sign out'),
                     onTap: session.busy ? null : session.logout,
@@ -95,6 +94,15 @@ class ProfileScreen extends StatelessWidget {
                     ),
                 ],
               ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          const WebsiteLinks(),
+          Center(
+            child: TextButton(
+              onPressed: () =>
+                  WebsiteLinks.open(context, WebsiteLinks.accountDeletion),
+              child: const Text('Request account deletion'),
             ),
           ),
         ],
@@ -121,7 +129,8 @@ class _PersonalInformationState extends State<_PersonalInformation> {
   late final _name = TextEditingController(text: widget.member.fullName);
   late final _school = TextEditingController(text: widget.member.school);
   final _form = GlobalKey<FormState>();
-  bool _saving = false;
+  bool _saving = false, _updatingAvatar = false;
+  static const _maxPhotoBytes = 5 * 1024 * 1024;
   String? _error;
 
   @override
@@ -136,7 +145,10 @@ class _PersonalInformationState extends State<_PersonalInformation> {
       : null;
 
   Future<void> _save() async {
-    if (_saving || widget.session.busy || !_form.currentState!.validate()) {
+    if (_saving ||
+        _updatingAvatar ||
+        widget.session.busy ||
+        !_form.currentState!.validate()) {
       return;
     }
     FocusScope.of(context).unfocus();
@@ -162,10 +174,84 @@ class _PersonalInformationState extends State<_PersonalInformation> {
     }
   }
 
+  Future<void> _chooseAvatar() async {
+    if (_saving || _updatingAvatar || widget.session.busy) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _updatingAvatar = true;
+      _error = null;
+    });
+    String? cachedPath;
+    try {
+      final XFile? file;
+      final String filename;
+      if (Platform.isAndroid) {
+        const picker = MethodChannel('qaabil/video_picker');
+        final selected = await picker.invokeMapMethod<String, String>(
+          'pickPhoto',
+          {'maxBytes': _maxPhotoBytes},
+        );
+        if (selected == null) return;
+        cachedPath = selected['path']!;
+        filename = selected['name']!;
+        file = XFile(cachedPath);
+      } else {
+        file = await openFile(
+          acceptedTypeGroups: const [
+            XTypeGroup(
+              label: 'Profile photos',
+              extensions: ['jpg', 'jpeg', 'png', 'webp'],
+              mimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+              uniformTypeIdentifiers: [
+                'public.jpeg',
+                'public.png',
+                'org.webmproject.webp',
+              ],
+            ),
+          ],
+        );
+        if (file == null) return;
+        filename = file.name;
+      }
+
+      if (await file.length() > _maxPhotoBytes) {
+        throw const ApiException('Choose a photo up to 5 MB.');
+      }
+      final bytes = await file.readAsBytes();
+      if (!mounted || widget.session.member?.id != widget.member.id) return;
+      await widget.session.updateAvatar(bytes, filename);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Profile photo updated.')));
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } on PlatformException catch (error) {
+      if (mounted) {
+        setState(
+          () => _error = error.code == 'file_too_large'
+              ? 'Choose a photo up to 5 MB.'
+              : 'Could not open that photo. Choose another file.',
+        );
+      }
+    } on FileSystemException {
+      if (mounted) setState(() => _error = 'Could not read that photo.');
+    } finally {
+      if (cachedPath != null) {
+        try {
+          await File(cachedPath).delete();
+        } on FileSystemException {
+          // Android may have already removed the temporary photo.
+        }
+      }
+      if (mounted) setState(() => _updatingAvatar = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = AppPalette.of(context);
-    final enabled = !_saving && !widget.session.busy;
+    final enabled = !_saving && !_updatingAvatar && !widget.session.busy;
     final fields = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -214,11 +300,31 @@ class _PersonalInformationState extends State<_PersonalInformation> {
         ),
       ],
     );
-    final avatar = CircleAvatar(
-      radius: 48,
-      backgroundColor: palette.elevated,
-      foregroundColor: palette.textSecondary,
-      child: const Icon(Icons.person_outline_rounded, size: 44),
+    final photo = widget.member.avatarUrl;
+    final avatar = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CircleAvatar(
+          radius: 48,
+          backgroundColor: palette.elevated,
+          foregroundColor: palette.textSecondary,
+          foregroundImage: photo == null
+              ? null
+              : NetworkImage(photo.toString()),
+          onForegroundImageError: photo == null ? null : (_, _) {},
+          child: const Icon(Icons.person_outline_rounded, size: 44),
+        ),
+        TextButton(
+          onPressed: enabled ? _chooseAvatar : null,
+          child: Text(
+            _updatingAvatar
+                ? 'Updating photo…'
+                : photo == null
+                ? 'Add profile photo'
+                : 'Change profile photo',
+          ),
+        ),
+      ],
     );
 
     return AppCard(

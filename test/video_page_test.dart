@@ -249,6 +249,8 @@ void main() {
       await tester.ensureVisible(find.text('Submit review'));
       await tester.tap(find.text('Submit review'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Agree and continue'));
+      await tester.pumpAndSettle();
       expect(
         find.text('You have already reviewed this video.'),
         findsOneWidget,

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/website_links.dart';
+
 import '../auth/member_session.dart';
 import '../theme/app_tokens.dart';
 import '../theme/app_appearance.dart';
@@ -122,10 +124,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 if (session.error != null) ...[
                   const SizedBox(height: AppSpacing.md),
-                  Text(
-                    session.error!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      session.error!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
                   ),
                 ],
@@ -146,6 +151,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         )
                       : const Text('Sign in'),
                 ),
+                const SizedBox(height: AppSpacing.sm),
+                const WebsiteLinks(),
               ],
             ),
           ),

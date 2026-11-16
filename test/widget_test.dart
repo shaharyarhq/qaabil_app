@@ -95,6 +95,46 @@ void main() {
     },
   );
 
+  testWidgets('Guest learning and past papers use the shared sign-in card', (
+    tester,
+  ) async {
+    await openCourses(tester);
+    for (final tab in ['My Learning', 'Past Papers']) {
+      await tester.tap(find.text(tab));
+      await tester.pumpAndSettle();
+      expect(find.text('Login to your account'), findsOneWidget);
+      expect(find.text('Browse courses'), findsOneWidget);
+      await tester.tap(find.text('Login to your account'));
+      await tester.pumpAndSettle();
+      expect(find.text('Email address'), findsOneWidget);
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Browse courses'));
+      await tester.pumpAndSettle();
+      expect(find.text('Backend Accounting'), findsOneWidget);
+    }
+  });
+
+  testWidgets('Guest sign-in remains usable at double text size', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    addTearDown(tester.view.reset);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+    await openCourses(tester);
+    await tester.tap(find.text('Profile'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Login to your account'));
+    await tester.tap(find.text('Login to your account'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Privacy policy'));
+    expect(find.text('Privacy policy').hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Search, dynamic qualification and sort are sent to server', (
     tester,
   ) async {

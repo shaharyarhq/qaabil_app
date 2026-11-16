@@ -10,7 +10,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../widgets/qaabil_app_bar.dart';
 import '../widgets/search_field.dart';
-import 'member_area_screen.dart';
+import 'member_sign_in_gate.dart';
 import 'member_course_overview_screen.dart';
 import 'member_course_screen.dart';
 
@@ -157,29 +157,10 @@ class _MyLearningScreenState extends State<MyLearningScreen> {
   Widget build(BuildContext context) {
     final session = SessionScope.of(context);
     if (session.member == null) {
-      return MemberAreaScreen(
+      return MemberSignInGate(
         title: 'My Learning',
-        description: 'Your courses, progress and achievements, together.',
-        icon: Icons.school_outlined,
+        description: 'Sign in to see your courses and learning progress.',
         onBrowseCourses: widget.onBrowseCourses,
-        features: const [
-          (
-            icon: Icons.menu_book_outlined,
-            title: 'My courses',
-            description: 'Return to the courses you are studying.',
-          ),
-          (
-            icon: Icons.insights_outlined,
-            title: 'Objective progress',
-            description:
-                'Track what needs practice and what you have mastered.',
-          ),
-          (
-            icon: Icons.emoji_events_outlined,
-            title: 'Badges and achievements',
-            description: 'See recognition for your contributions and reviews.',
-          ),
-        ],
       );
     }
     return Scaffold(

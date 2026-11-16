@@ -28,13 +28,20 @@ class ObjectiveVideoPreview extends StatefulWidget {
 
 class _ObjectiveVideoPreviewState extends State<ObjectiveVideoPreview> {
   Future<ObjectiveResources>? _resources;
+  int? _memberId;
+  int? _visibilityVersion;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final session = SessionScope.of(context);
-    if (session.member != null) {
-      _resources ??= session.resources(widget.objectiveId);
+    if (_memberId != session.member?.id ||
+        _visibilityVersion != session.contentVisibilityVersion) {
+      _memberId = session.member?.id;
+      _visibilityVersion = session.contentVisibilityVersion;
+      _resources = _memberId == null
+          ? null
+          : session.resources(widget.objectiveId);
     }
   }
 

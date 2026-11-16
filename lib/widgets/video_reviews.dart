@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+
+import 'content_report_button.dart';
+import 'content_rules.dart';
+
 import 'package:qaabil_mobile/widgets/primary_button.dart';
 
 import '../auth/member_session.dart';
@@ -22,6 +26,7 @@ class _VideoReviewsState extends State<VideoReviews> {
   final List<VideoReview> _reviews = [];
   VideoReviewPage? _summary;
   int? _memberId;
+  int? _visibilityVersion;
   int _version = 0, _rating = 0;
   bool _loading = false, _saving = false;
   String? _error, _actionError;
@@ -29,9 +34,12 @@ class _VideoReviewsState extends State<VideoReviews> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final id = SessionScope.of(context).member?.id;
-    if (_memberId != id) {
+    final session = SessionScope.of(context);
+    final id = session.member?.id;
+    if (_memberId != id ||
+        _visibilityVersion != session.contentVisibilityVersion) {
       _memberId = id;
+      _visibilityVersion = session.contentVisibilityVersion;
       _version++;
       _reviews.clear();
       _summary = null;
@@ -84,6 +92,11 @@ class _VideoReviewsState extends State<VideoReviews> {
   Future<void> _submit() async {
     if (_saving || _rating < 1) return;
     final session = SessionScope.of(context);
+    if (!await confirmContentRules(context) ||
+        !mounted ||
+        session.member == null) {
+      return;
+    }
     setState(() {
       _saving = true;
       _actionError = null;
@@ -183,6 +196,14 @@ class _VideoReviewsState extends State<VideoReviews> {
                 onPressed: _saving ? null : () => _delete(review),
                 child: const Text('Delete my review'),
               ),
+            )
+          else
+            Align(
+              alignment: Alignment.centerLeft,
+              child: ContentReportButton(
+                videoId: widget.videoId,
+                reviewId: review.id,
+              ),
             ),
         ],
       ),
@@ -253,7 +274,8 @@ class _VideoReviewsState extends State<VideoReviews> {
                     children: [
                       for (var n = 1; n <= 5; n++)
                         IconButton(
-                          tooltip: '$n stars',
+                          tooltip: n == 1 ? '1 star' : '$n stars',
+                          isSelected: _rating == n,
                           onPressed: _saving
                               ? null
                               : () => setState(() => _rating = n),

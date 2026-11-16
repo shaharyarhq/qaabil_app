@@ -29,6 +29,7 @@ class ObjectiveResourcesScreen extends StatefulWidget {
 class _ObjectiveResourcesScreenState extends State<ObjectiveResourcesScreen> {
   Future<ObjectiveResources>? _resources;
   int? _memberId;
+  int? _visibilityVersion;
   int? _openingNote;
   final _search = TextEditingController();
   String? _language, _focus;
@@ -53,8 +54,10 @@ class _ObjectiveResourcesScreenState extends State<ObjectiveResourcesScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final session = SessionScope.of(context);
-    if (session.member?.id != _memberId) {
+    if (session.member?.id != _memberId ||
+        _visibilityVersion != session.contentVisibilityVersion) {
       _memberId = session.member?.id;
+      _visibilityVersion = session.contentVisibilityVersion;
       _clearFilters();
       _resources = _memberId == null
           ? null

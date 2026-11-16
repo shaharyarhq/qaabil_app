@@ -1,6 +1,6 @@
 # Qaabil mobile handoff
 
-Last updated 2026-11-16. Read this first when resuming in a new chat. Use the current source and working-tree status to verify anything that may have changed.
+Last updated 2026-11-17. Read this first when resuming in a new chat. Use the current source and working-tree status to verify anything that may have changed.
 
 ## Scope and working preferences
 
@@ -52,11 +52,27 @@ Use the DDEV backend and confirm its mapped HTTP port with `docker port ddev-qaa
 
 ## Next task
 
-Deploy the matching Laravel changes before sharing the Android release preview for a member walkthrough. The preview targets `https://qaabil.io/api/v1`. The live catalogue and sampled course details responded on 2026-11-16. The live submission options endpoint returned 404. Apply the upload fingerprint migration and verify production member login, submissions, and Bunny configuration after deployment.
+The Android preview pass tightened catalogue cards, simplified navigation, improved form contrast, and tested guest sign-in at 200% text size. Login and Profile link to privacy, terms, and support. Profile links to a website account-deletion request, which support handles manually. Video and review posting prompts for agreement to content rules. Signed-in members can report videos or reviews to Qaabil support, block their authors across mobile lesson and review endpoints, and unblock authors from Profile.
+
+Deploy Laravel and apply both November 17 migrations for Bunny ownership tracking and author blocking. Before sharing the updated APK, verify live login, report delivery to the actual support inbox, author blocking, and video cleanup on qaabil.io. For store review, confirm the account-deletion process, moderation coverage and response, Play Data safety, App Store privacy disclosures, and iOS behavior.
+
+The signed production-URL Android preview is at `build/qaabil-preview/Qaabil-Android-Preview-2026-11-17.apk` and supports ARM and x86-64. Laravel changes are on `de6e435`. The production blocking endpoint returned 404 during the release check.
+
+Signed-out My Learning, Past Papers, and Profile share the same Qaabil sign-in card. My Video Submissions has a confirmation dialog and uses the owner-scoped `DELETE /api/v1/member/submissions/{video}` route, matching website record deletion. Flutter tests cover cancellation and removal. Laravel tests cover guest and other-member rejection. The local Waydroid build is open on the submissions list.
+
+Deleting a video through the app or Filament triggers Laravel cleanup after commit. It removes unshared files from the video attachment directories and removes a tracked Bunny Stream upload when its last video reference is deleted. The managed upload registry records new uploads and backfills existing Bunny videos with upload fingerprints. Untracked sources such as YouTube remain separate. The registry migration was applied to local DDEV. Tests use mocked Bunny calls and verify rollback, shared attachments, and final-reference cleanup. Deploy the backend and run the migration on qaabil.io before testing there. Cleanup uses the configured queue, with a database retry if a sync cleanup fails.
+
+The Android release preview targets `https://qaabil.io/api/v1`. Live catalogue and course requests work, and the submission options endpoint requires authentication. Laravel commit `8dd2bce` fixes the malformed bcrypt fallback for unknown sign-in accounts. The GitHub deployment targets the demo installation.
 
 Verified Bunny upload end to end on the local development setup. **Qaabil E2E MP4** (video 18) was submitted from Waydroid, appeared as Pending in the app and moderator query, reached 100% encoding, passed the normal moderator approval action, and played from the Excel course in Waydroid. A 720p control clip (video 19) remains Pending. Notify the account owner before attempting to fix Waydroid system errors.
 
-Verify a changed Profile value against the signed-in website. The account owner already verified video title edits.
+The account owner confirmed that production sign-in works and a full-name edit made in the Android app appears on the website. The account owner also verified video title edits.
+
+Profile displays the shared website avatar and can add or replace it. Flutter uploads JPEG, PNG, or WebP through `POST /api/v1/member/me/avatar`. Laravel stores it on the same public avatars disk and updates the existing user field. The previous member-owned mobile photo is removed after replacement. The account owner uploaded a photo in Waydroid, and a local check confirmed that the website resolves the same file. Deploy the Laravel route and rebuild the Android preview before testing this on qaabil.io.
+
+Filament profile previews, sidebar avatars, and built-in dashboard badge images use paths on the current website origin. The admin uploader returned a same-origin JPEG path for the Waydroid photo, and the local browser origin served the photo and checked badge files with HTTP 200.
+
+The universal release preview at `build/qaabil-preview/Qaabil-Android-Preview-Universal.apk` includes x86-64 Flutter libraries alongside both ARM variants. It installs and loads the live catalogue on Waydroid. It uses the same preview signing key as the first release APK.
 
 Physical Android compatibility verified on a TECNO KC2 (Android 9) with the USB tunnel to local DDEV. The Documents picker opened a test MP4, the inline preview played, and **Qaabil TECNO Upload** appeared as Pending after submission.
 

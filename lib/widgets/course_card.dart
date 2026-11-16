@@ -15,6 +15,7 @@ class CourseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final date = course.updatedOn ?? course.addedOn;
+    final hasDescription = course.description.trim().isNotEmpty;
     return Material(
       color: AppPalette.of(context).surface,
       shape: RoundedRectangleBorder(
@@ -25,7 +26,7 @@ class CourseCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 320),
+          constraints: BoxConstraints(minHeight: hasDescription ? 250 : 180),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -71,7 +72,7 @@ class CourseCard extends StatelessWidget {
                           fontSize: 21,
                         ),
                       ),
-                      if (course.description.isNotEmpty) ...[
+                      if (hasDescription) ...[
                         const SizedBox(height: 8),
                         Text(
                           course.description,

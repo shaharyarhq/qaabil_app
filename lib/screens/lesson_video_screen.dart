@@ -10,6 +10,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../theme/app_tokens.dart';
 import '../utils/formatters.dart';
+import '../widgets/content_report_button.dart';
 import '../widgets/qaabil_app_bar.dart';
 import '../widgets/video_information.dart';
 import '../widgets/video_reviews.dart';
@@ -31,17 +32,23 @@ class _LessonVideoScreenState extends State<LessonVideoScreen> {
   _LessonTab _tab = _LessonTab.overview;
   bool _reviewsOpened = false;
   int? _memberId;
+  int? _visibilityVersion;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final session = SessionScope.of(context);
-    if (session.member?.id != _memberId) {
+    if (session.member?.id != _memberId ||
+        _visibilityVersion != session.contentVisibilityVersion) {
+      final changedMember = _memberId != session.member?.id;
       _memberId = session.member?.id;
+      _visibilityVersion = session.contentVisibilityVersion;
       _video = _memberId == null ? null : session.video(widget.videoId);
       _details = _memberId == null ? null : _loadDetails(session);
-      _tab = _LessonTab.overview;
-      _reviewsOpened = false;
+      if (changedMember) {
+        _tab = _LessonTab.overview;
+        _reviewsOpened = false;
+      }
     }
   }
 
@@ -296,6 +303,11 @@ class _LessonVideoScreenState extends State<LessonVideoScreen> {
             ),
         ],
       ),
+      if (details?.status == 'approved')
+        Align(
+          alignment: Alignment.centerLeft,
+          child: ContentReportButton(videoId: widget.videoId),
+        ),
     ],
   );
 

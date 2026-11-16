@@ -12,11 +12,9 @@ import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 import '../theme/app_tokens.dart';
 import '../widgets/app_card.dart';
-import '../widgets/primary_button.dart';
 import '../widgets/qaabil_app_bar.dart';
 import '../widgets/search_field.dart';
-import '../widgets/section_header.dart';
-import 'login_screen.dart';
+import 'member_sign_in_gate.dart';
 
 class PastPapersScreen extends StatefulWidget {
   const PastPapersScreen({
@@ -360,7 +358,13 @@ class _PastPapersScreenState extends State<PastPapersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final member = SessionScope.of(context).member;
+    if (SessionScope.of(context).member == null) {
+      return MemberSignInGate(
+        title: 'Past Papers',
+        description: 'Sign in to open question papers, marking schemes, and examiner reports.',
+        onBrowseCourses: widget.onBrowseCourses,
+      );
+    }
     final filtered =
         _search.text.isNotEmpty ||
         _course != null ||
@@ -386,324 +390,277 @@ class _PastPapersScreenState extends State<PastPapersScreen> {
                 vertical: 24,
               ),
               children: [
-                if (member == null)
-                  const SectionHeader(
-                    eyebrow: 'EXAM PRACTICE',
-                    title: 'Past Papers',
-                    accent: '',
-                    subtitle: 'Find your paper. Get ready for your next exam.',
+                const Text(
+                  'Past Papers  ›  List',
+                  style: AppTextStyles.caption,
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 16,
+                  runSpacing: 8,
+                  children: [
+                    const Text('Past Papers', style: AppTextStyles.heading),
+                    if (_courses.isNotEmpty)
+                      FilledButton.icon(
+                        onPressed: _openReport,
+                        style: _downloadStyle(context, 'question_paper'),
+                        icon: const Icon(Icons.download_outlined, size: 18),
+                        label: const Text('Download my Past Paper Report'),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Material(
+                  color: palette.surface,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: palette.border),
                   ),
-                if (member == null) const SizedBox(height: AppSpacing.xl),
-                if (member == null) ...[
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          spacing: 12,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Filters',
+                                  style: AppTextStyles.title,
+                                ),
+                                TextButton(
+                                  onPressed: filtered ? _resetFilters : null,
+                                  child: const Text('Reset'),
+                                ),
+                              ],
+                            ),
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                final columns = constraints.maxWidth >= 700
+                                    ? 3
+                                    : constraints.maxWidth >= 500
+                                    ? 2
+                                    : 1;
+                                final width =
+                                    (constraints.maxWidth -
+                                        (columns - 1) * 12) /
+                                    columns;
+                                return Wrap(
+                                  spacing: 12,
+                                  runSpacing: 12,
+                                  children: [
+                                    SizedBox(
+                                      width: width,
+                                      child: _PaperFilter(
+                                        label: 'Paper Name',
+                                        child: SearchField(
+                                          controller: _search,
+                                          hint: 'Search paper name…',
+                                          onChanged: _searchChanged,
+                                          onClear: () {
+                                            _search.clear();
+                                            _searchChanged('');
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: width,
+                                      child: _PaperFilter(
+                                        label: 'Course',
+                                        child: SearchableSelectField<int>(
+                                          label: 'Course',
+                                          value:
+                                              _courses.any(
+                                                (course) =>
+                                                    course.id == _course,
+                                              )
+                                              ? _course
+                                              : null,
+                                          decoration: const InputDecoration(
+                                            isDense: true,
+                                          ),
+                                          options: {
+                                            null: 'All courses',
+                                            for (final course in _courses)
+                                              course.id: course.name,
+                                          },
+                                          onChanged: (value) {
+                                            _course = value;
+                                            _load(reset: true);
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: width,
+                                      child: _PaperFilter(
+                                        label: 'Year',
+                                        child: SearchableSelectField<int>(
+                                          label: 'Year',
+                                          value: _years.contains(_year)
+                                              ? _year
+                                              : null,
+                                          decoration: const InputDecoration(
+                                            isDense: true,
+                                          ),
+                                          options: {
+                                            null: 'All years',
+                                            for (final year in _years)
+                                              year: '$year',
+                                          },
+                                          onChanged: (value) {
+                                            _year = value;
+                                            _load(reset: true);
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: width,
+                                      child: _PaperFilter(
+                                        label: 'Sitting',
+                                        child: SearchableSelectField<String>(
+                                          label: 'Sitting',
+                                          value: _sittings.contains(_sitting)
+                                              ? _sitting
+                                              : null,
+                                          decoration: const InputDecoration(
+                                            isDense: true,
+                                          ),
+                                          options: {
+                                            null: 'All sittings',
+                                            for (final sitting in _sittings)
+                                              sitting: sitting,
+                                          },
+                                          onChanged: (value) {
+                                            _sitting = value;
+                                            _load(reset: true);
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      Divider(height: 1, color: palette.border),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        child: Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 12,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              spacing: 10,
+                              children: [
+                                const Text(
+                                  'Group by',
+                                  style: AppTextStyles.caption,
+                                ),
+                                SearchableSelect<_PaperGrouping>(
+                                  label: 'Group by',
+                                  value: _grouping,
+                                  options: {
+                                    for (final group in _PaperGrouping.values)
+                                      group: group.label,
+                                  },
+                                  onChanged: (value) =>
+                                      setState(() => _grouping = value!),
+                                  child: SizedBox(
+                                    height: 48,
+                                    child: Row(
+                                      children: [
+                                        Text(_grouping.label),
+                                        const Icon(Icons.arrow_drop_down),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Text(
+                              _loading && _papers.isEmpty
+                                  ? 'Finding papers…'
+                                  : '$_total ${_total == 1 ? 'paper' : 'papers'} found',
+                              style: AppTextStyles.caption,
+                            ),
+                          ],
+                        ),
+                      ),
+                      ..._paperGroups(context),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                if (_error != null)
                   AppCard(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(_error!, style: AppTextStyles.body),
+                        TextButton(
+                          onPressed: _loading
+                              ? null
+                              : () => _load(reset: _papers.isEmpty),
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (!_loading && _error == null && _papers.isEmpty)
+                  AppCard(
+                    child: Column(
                       children: [
                         Icon(
-                          Icons.assignment_rounded,
+                          Icons.find_in_page_rounded,
+                          size: 46,
                           color: AppPalette.of(context).violet,
-                          size: 48,
                         ),
-                        const SizedBox(height: AppSpacing.lg),
-                        const Text(
-                          'Your next practice session starts here',
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          filtered
+                              ? 'No matching papers'
+                              : 'No past papers yet',
                           style: AppTextStyles.title,
                         ),
                         const SizedBox(height: AppSpacing.sm),
-                        const Text(
-                          'Log in to browse papers and open question papers, marking schemes and examiner reports.',
+                        Text(
+                          filtered ? 'Try another course, year or sitting.' : 'Papers will appear here when they are added to Qaabil.',
                           style: AppTextStyles.body,
                         ),
-                        const SizedBox(height: AppSpacing.lg),
-                        PrimaryButton(
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const LoginScreen(),
-                            ),
-                          ),
-                          child: const Text('Login to your account'),
-                        ),
-                        TextButton(
-                          onPressed: widget.onBrowseCourses,
-                          child: const Text('Browse courses'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ] else ...[
-                  const Text(
-                    'Past Papers  ›  List',
-                    style: AppTextStyles.caption,
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    alignment: WrapAlignment.spaceBetween,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    spacing: 16,
-                    runSpacing: 8,
-                    children: [
-                      const Text('Past Papers', style: AppTextStyles.heading),
-                      if (_courses.isNotEmpty)
-                        FilledButton.icon(
-                          onPressed: _openReport,
-                          style: _downloadStyle(context, 'question_paper'),
-                          icon: const Icon(Icons.download_outlined, size: 18),
-                          label: const Text('Download my Past Paper Report'),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Material(
-                    color: palette.surface,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: palette.border),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            spacing: 12,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text(
-                                    'Filters',
-                                    style: AppTextStyles.title,
-                                  ),
-                                  TextButton(
-                                    onPressed: filtered ? _resetFilters : null,
-                                    child: const Text('Reset'),
-                                  ),
-                                ],
-                              ),
-                              LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final columns = constraints.maxWidth >= 700
-                                      ? 3
-                                      : constraints.maxWidth >= 500
-                                      ? 2
-                                      : 1;
-                                  final width =
-                                      (constraints.maxWidth -
-                                          (columns - 1) * 12) /
-                                      columns;
-                                  return Wrap(
-                                    spacing: 12,
-                                    runSpacing: 12,
-                                    children: [
-                                      SizedBox(
-                                        width: width,
-                                        child: _PaperFilter(
-                                          label: 'Paper Name',
-                                          child: SearchField(
-                                            controller: _search,
-                                            hint: 'Search paper name…',
-                                            onChanged: _searchChanged,
-                                            onClear: () {
-                                              _search.clear();
-                                              _searchChanged('');
-                                            },
-                                          ),
-                                        ),
-                                      ),
-                                      SizedBox(
-                                        width: width,
-                                        child: _PaperFilter(
-                                          label: 'Course',
-                                          child: SearchableSelectField<int>(
-                                            label: 'Course',
-                                            value:
-                                                _courses.any(
-                                                  (course) =>
-                                                      course.id == _course,
-                                                )
-                                                ? _course
-                                                : null,
-                                            decoration: const InputDecoration(
-                                              isDense: true,
-                                            ),
-                                            options: {
-                                              null: 'All courses',
-                                              for (final course in _courses)
-                                                course.id: course.name,
-                                            },
-                                            onChanged: (value) {
-                                              _course = value;
-                                              _load(reset: true);
-                                            },
-                                          ),
-                                        ),
-                                      ),
-                                      SizedBox(
-                                        width: width,
-                                        child: _PaperFilter(
-                                          label: 'Year',
-                                          child: SearchableSelectField<int>(
-                                            label: 'Year',
-                                            value: _years.contains(_year)
-                                                ? _year
-                                                : null,
-                                            decoration: const InputDecoration(
-                                              isDense: true,
-                                            ),
-                                            options: {
-                                              null: 'All years',
-                                              for (final year in _years)
-                                                year: '$year',
-                                            },
-                                            onChanged: (value) {
-                                              _year = value;
-                                              _load(reset: true);
-                                            },
-                                          ),
-                                        ),
-                                      ),
-                                      SizedBox(
-                                        width: width,
-                                        child: _PaperFilter(
-                                          label: 'Sitting',
-                                          child: SearchableSelectField<String>(
-                                            label: 'Sitting',
-                                            value: _sittings.contains(_sitting)
-                                                ? _sitting
-                                                : null,
-                                            decoration: const InputDecoration(
-                                              isDense: true,
-                                            ),
-                                            options: {
-                                              null: 'All sittings',
-                                              for (final sitting in _sittings)
-                                                sitting: sitting,
-                                            },
-                                            onChanged: (value) {
-                                              _sitting = value;
-                                              _load(reset: true);
-                                            },
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        Divider(height: 1, color: palette.border),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          child: Wrap(
-                            alignment: WrapAlignment.spaceBetween,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 12,
-                            children: [
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                spacing: 10,
-                                children: [
-                                  const Text(
-                                    'Group by',
-                                    style: AppTextStyles.caption,
-                                  ),
-                                  SearchableSelect<_PaperGrouping>(
-                                    label: 'Group by',
-                                    value: _grouping,
-                                    options: {
-                                      for (final group in _PaperGrouping.values)
-                                        group: group.label,
-                                    },
-                                    onChanged: (value) =>
-                                        setState(() => _grouping = value!),
-                                    child: SizedBox(
-                                      height: 48,
-                                      child: Row(
-                                        children: [
-                                          Text(_grouping.label),
-                                          const Icon(Icons.arrow_drop_down),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Text(
-                                _loading && _papers.isEmpty
-                                    ? 'Finding papers…'
-                                    : '$_total ${_total == 1 ? 'paper' : 'papers'} found',
-                                style: AppTextStyles.caption,
-                              ),
-                            ],
-                          ),
-                        ),
-                        ..._paperGroups(context),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  if (_error != null)
-                    AppCard(
-                      child: Column(
-                        children: [
-                          Text(_error!, style: AppTextStyles.body),
+                        if (filtered)
                           TextButton(
-                            onPressed: _loading
-                                ? null
-                                : () => _load(reset: _papers.isEmpty),
-                            child: const Text('Retry'),
+                            onPressed: _resetFilters,
+                            child: const Text('Show all papers'),
                           ),
-                        ],
-                      ),
+                      ],
                     ),
-                  if (!_loading && _error == null && _papers.isEmpty)
-                    AppCard(
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.find_in_page_rounded,
-                            size: 46,
-                            color: AppPalette.of(context).violet,
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          Text(
-                            filtered
-                                ? 'No matching papers'
-                                : 'No past papers yet',
-                            style: AppTextStyles.title,
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          Text(
-                            filtered ? 'Try another course, year or sitting.' : 'Papers will appear here when they are added to Qaabil.',
-                            style: AppTextStyles.body,
-                          ),
-                          if (filtered)
-                            TextButton(
-                              onPressed: _resetFilters,
-                              child: const Text('Show all papers'),
-                            ),
-                        ],
-                      ),
-                    ),
-                  if (_loading)
-                    const Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Center(child: CircularProgressIndicator()),
-                    ),
-                  if (!_loading && _error == null && _page < _lastPage)
-                    OutlinedButton(
-                      onPressed: () => _load(),
-                      child: const Text('Load more papers'),
-                    ),
-                ],
+                  ),
+                if (_loading)
+                  const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                if (!_loading && _error == null && _page < _lastPage)
+                  OutlinedButton(
+                    onPressed: () => _load(),
+                    child: const Text('Load more papers'),
+                  ),
               ],
             ),
           ),
